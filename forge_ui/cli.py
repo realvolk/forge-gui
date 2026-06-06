@@ -1,4 +1,23 @@
 #!/usr/bin/env python3
+import os
+import sys
+
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
+
+import pathlib
+pkg_dir = pathlib.Path(__file__).resolve().parent
+for pyc in pkg_dir.rglob('*.pyc'):
+    try:
+        pyc.unlink()
+    except OSError:
+        pass
+for cachedir in pkg_dir.rglob('__pycache__'):
+    try:
+        for f in cachedir.iterdir():
+            f.unlink()
+        cachedir.rmdir()
+    except OSError:
+        pass
 
 import sys
 import json
@@ -23,12 +42,11 @@ def main():
                         help="Accent color (256-color code)")
     args = parser.parse_args()
 
-    # Config mode: launch persistent configuration window
     if args.mode == "config":
-        from .artixgui import run_dispatcher
         state_file = "/tmp/artix-installer/state.conf"
         os.makedirs(os.path.dirname(state_file), exist_ok=True)
-        run_dispatcher(state_file)
+        from .artixgui.mode_select import run_mode_selection
+        run_mode_selection(state_file)
         sys.exit(0)
 
     try:

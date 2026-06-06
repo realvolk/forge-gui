@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 import os
 import sys
-from gi.repository import Gtk
+import gi
+gi.require_version('Gtk', '3.0')
 
 from .automatic import AutomaticWindow
 from .manual import ManualWindow
