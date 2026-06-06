@@ -180,6 +180,7 @@ class MigrationWindow(BaseWindow):
         self.collect_state()
         # Get the base directory (where install script lives)
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        base_dir = os.path.join(base_dir, "..")
         
         if self.migration_type == "init":
             # Call the appropriate init migration script

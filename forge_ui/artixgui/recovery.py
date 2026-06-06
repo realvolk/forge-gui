@@ -69,8 +69,9 @@ class RecoveryWindow(BaseWindow):
         return box
 
     def on_refresh_status(self, widget):
-        # Run recovery_get_status via Bash and display
-        cmd = ["bash", "-c", "source /root/ArtixForge/scripts/recovery/core.sh && recovery_get_status"]
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        script_dir = os.path.join(base_dir, "..", "scripts")
+        cmd = ["bash", "-c", f"source {script_dir}/recovery/core.sh && recovery_get_status"]
         try:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             self.status_text.get_buffer().set_text(result.stdout)
@@ -151,7 +152,7 @@ class RecoveryWindow(BaseWindow):
 
         # Map action to Bash command
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        script_dir = f"{base_dir}/scripts"
+        script_dir = os.path.join(base_dir, "..", "scripts")
 
         if action == "View system status":
             cmd = ["bash", "-c", f"source {script_dir}/recovery/core.sh && recovery_get_status"]

@@ -427,7 +427,7 @@ class CommonPages:
         self.btrfs_box.pack_start(self.btrfs_combo, False, False, 0)
         
         box.pack_start(self.btrfs_box, False, False, 0)
-        self.btrfs_box.set_visible(False)
+        self.btrfs_box.hide()  # was set_visible(False)
         
         self.fs_combo.connect("changed", self.on_fs_changed)
         
@@ -437,7 +437,10 @@ class CommonPages:
         iter = combo.get_active_iter()
         if iter:
             fs = combo.get_model()[iter][0]
-            self.btrfs_box.set_visible(fs == "btrfs")
+            if fs == "btrfs":
+                self.btrfs_box.show()
+            else:
+                self.btrfs_box.hide()
     
     def create_bootloader_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)

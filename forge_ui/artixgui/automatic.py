@@ -67,13 +67,20 @@ class AutomaticWindow(BaseWindow, CommonPages):
         self.luks_box.set_visible(False)
         self.luks_check.connect("toggled", self.on_luks_toggled)
         
+        box.pack_start(self.luks_box, False, False, 0)
+        self.luks_box.hide()  # was set_visible(False)
+        self.luks_check.connect("toggled", self.on_luks_toggled)
+
         self.lvm_check = Gtk.CheckButton(label="Enable LVM")
         box.pack_start(self.lvm_check, False, False, 5)
         
         return box
     
     def on_luks_toggled(self, check):
-        self.luks_box.set_visible(check.get_active())
+        if check.get_active():
+            self.luks_box.show()
+        else:
+            self.luks_box.hide()
 
     def create_privilege_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
