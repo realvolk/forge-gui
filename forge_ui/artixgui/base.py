@@ -368,6 +368,7 @@ class CommonPages:
         return box
     
     def create_extras_page(self):
+        self.extras_checkboxes = {}
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         
         shell_label = Gtk.Label(label="Select user shell:", xalign=0)
@@ -704,8 +705,11 @@ class CommonPages:
                 self.state['USER_SHELL'] = self.shell_combo.get_model()[iter][0]
         
         # Extras
-        if hasattr(self, 'extras_checkboxes') and isinstance(self.extras_checkboxes, dict):
-            extras = [pkg for pkg, cb in self.extras_checkboxes.items() if cb.get_active()]
+        if hasattr(self, 'extras_checkboxes'):
+            # Force it to be a dictionary
+            if not isinstance(self.extras_checkboxes, dict):
+                self.extras_checkboxes = {}
+            extras = [pkg for pkg, cb in self.extras_checkboxes.items() if cb and cb.get_active()]
             self.state['EXTRAS'] = " ".join(extras)
 
         # Hostname
