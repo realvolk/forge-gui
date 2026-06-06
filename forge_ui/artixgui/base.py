@@ -83,6 +83,8 @@ class BaseWindow:
             title_color=self.title_color, accent_color=self.accent_color
         )
         result = progress.run()
+        with open("/tmp/gui-debug.log", "w") as log:
+            log.write(f"Install result: {result}\n")
         
         if result.get("result") == "success":
             dialog = Gtk.MessageDialog(
