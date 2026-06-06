@@ -5,15 +5,22 @@ from gi.repository import Gtk, Gdk
 from ..backends.gui import ProgressWindow
 from ..theme import get_colors
 
-class BaseWindow:
-    @staticmethod
-    def _lighten_hex(hex_color, factor=0.2):
-        hex_color = hex_color.lstrip('#')
-        r = min(255, int(int(hex_color[0:2], 16) + (255 - int(hex_color[0:2], 16)) * factor))
-        g = min(255, int(int(hex_color[2:4], 16) + (255 - int(hex_color[2:4], 16)) * factor))
-        b = min(255, int(int(hex_color[4:6], 16) + (255 - int(hex_color[4:6], 16)) * factor))
-        return f"#{r:02x}{g:02x}{b:02x}"
+def _color_to_hex(code):
+    palette = {
+        212: "#c678dd", 34:  "#98c379", 39:  "#61afef",
+        245: "#928374", 250: "#a89984", 3:   "#d19a66",
+        117: "#56b6c2", 196: "#e06c75", 255: "#ffffff", 11: "#e5c07b",
+    }
+    return palette.get(code, f"#{code}")
 
+def _lighten_hex(hex_color, factor=0.2):
+    hex_color = hex_color.lstrip('#')
+    r = min(255, int(int(hex_color[0:2], 16) + (255 - int(hex_color[0:2], 16)) * factor))
+    g = min(255, int(int(hex_color[2:4], 16) + (255 - int(hex_color[2:4], 16)) * factor))
+    b = min(255, int(int(hex_color[4:6], 16) + (255 - int(hex_color[4:6], 16)) * factor))
+    return f"#{r:02x}{g:02x}{b:02x}"
+
+class BaseWindow:
     def __init__(self, state_file, state, title="ArtixForge"):
         self.state_file = state_file
         self.state = state
@@ -37,9 +44,9 @@ class BaseWindow:
             self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1))
         
         # Global styling
-        title_hex = self._color_to_hex(self.title_color)
-        accent_hex = self._color_to_hex(self.accent_color)
-        accent_light = self._lighten_hex(accent_hex)
+        title_hex = _color_to_hex(self.title_color)
+        accent_hex = _color_to_hex(self.accent_color)
+        accent_light = _lighten_hex(accent_hex)
 
         css = f"""
         * {{{{
