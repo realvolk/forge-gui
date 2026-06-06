@@ -74,7 +74,31 @@ class AutomaticWindow(BaseWindow, CommonPages):
     
     def on_luks_toggled(self, check):
         self.luks_box.set_visible(check.get_active())
-    
+
+    def create_privilege_page(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        
+        priv_label = Gtk.Label(label="Privilege escalation:", xalign=0)
+        box.pack_start(priv_label, False, False, 0)
+        
+        priv_store = Gtk.ListStore(str)
+        for priv in ["sudo", "doas"]:
+            priv_store.append([priv])
+        
+        self.priv_combo = Gtk.ComboBox.new_with_model(priv_store)
+        renderer_text = Gtk.CellRendererText()
+        self.priv_combo.pack_start(renderer_text, True)
+        self.priv_combo.add_attribute(renderer_text, "text", 0)
+        box.pack_start(self.priv_combo, False, False, 0)
+        
+        self.arch_repos_check = Gtk.CheckButton(label="Enable Arch Linux repositories")
+        box.pack_start(self.arch_repos_check, False, False, 5)
+        
+        self.offline_check = Gtk.CheckButton(label="Enable offline installation mode (cached packages)")
+        box.pack_start(self.offline_check, False, False, 5)
+        
+        return box
+
     def collect_state(self):
         # First collect all common fields
         self.collect_state_common()

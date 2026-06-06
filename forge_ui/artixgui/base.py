@@ -704,10 +704,10 @@ class CommonPages:
                 self.state['USER_SHELL'] = self.shell_combo.get_model()[iter][0]
         
         # Extras
-        if hasattr(self, 'extras_checkboxes'):
-            extras = [cb.get_label() for cb in self.extras_checkboxes if cb.get_active()]
+        if hasattr(self, 'extras_checkboxes') and isinstance(self.extras_checkboxes, dict):
+            extras = [pkg for pkg, cb in self.extras_checkboxes.items() if cb.get_active()]
             self.state['EXTRAS'] = " ".join(extras)
-        
+
         # Hostname
         if hasattr(self, 'hostname_entry'):
             self.state['HOSTNAME'] = self.hostname_entry.get_text()
