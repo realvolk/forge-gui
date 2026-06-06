@@ -65,9 +65,14 @@ class BaseWindow:
     
     def save_state(self):
         try:
-            with open(self.state_file, 'w') as f:
+            os.makedirs(os.path.dirname(self.state_file), exist_ok=True)
+            tmpfile = f"/tmp/artix-state-{os.getpid()}.tmp"
+            with open(tmpfile, 'w') as f:
                 for key, value in self.state.items():
                     f.write(f'{key}="{value}"\n')
+            subprocess.run(['sudo', 'cp', tmpfile, self.state_file], check=True)
+            subprocess.run(['sudo', 'chown', 'root:root', self.state_file], check=True)
+            subprocess.run(['shred', '-u', tmpfile], check=True)
         except Exception as e:
             print(f"Error saving state: {e}")
     
