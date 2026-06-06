@@ -102,6 +102,7 @@ class AutomaticWindow(BaseWindow, CommonPages):
     def collect_state(self):
         # First collect all common fields
         self.collect_state_common()
+        self.strate['MODE'] = 'auto'
         
         # Then add automatic-specific fields
         if hasattr(self, 'disk_combo'):

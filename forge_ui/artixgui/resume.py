@@ -22,3 +22,6 @@ class ResumeWindow(BaseWindow):
         box.pack_start(desc, False, False, 10)
         
         return box
+
+    def collect_state(self):
+        self.state['MODE'] = 'resume'

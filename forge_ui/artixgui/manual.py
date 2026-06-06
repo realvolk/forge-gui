@@ -51,7 +51,7 @@ class ManualWindow(AutomaticWindow):
     
     def collect_state(self):
         super().collect_state()
-        self.state['INSTALL_MODE'] = 'manual'
+        self.state['MODE'] = 'manual'
         # Automatic-specific fields that manual mode doesn't use
         self.state.pop('SWAP_ENABLED', None)
         self.state.pop('USE_LUKS', None)

@@ -537,6 +537,7 @@ package() {{
     def collect_state(self):
         # First collect from AutomaticWindow
         super().collect_state()
+        self.state['MODE'] = 'power'
 
         # Profile
         if hasattr(self, 'profile_combo'):
