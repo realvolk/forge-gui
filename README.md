@@ -1,92 +1,88 @@
-# forge-ui
+# forge-gui
 
-Unified TUI/GUI library for ArtixForge and Volk's Forge Framework (VFF).
+GTK3 graphical frontend for ArtixForge and Volk's Forge Framework (VFF).
 
-Provides a single command-line interface that renders either a **Textual-based terminal UI** or a **GTK3 graphical interface**, depending on the user's environment. All widgets share the same JSON input/output contract, allowing Bash scripts (ArtixForge) and Python applications (VFF) to share the same UI backend.
+Provides a single command-line interface that renders a **GTK3 window** for all user interactions. All widgets share the same JSON input/output contract, allowing Bash scripts (ArtixForge) and Python applications (VFF) to use a consistent GUI backend.
 
 ---
 
 ## Installation
 
-### Install from source
+### Install from Source
 
 ```bash
-git clone https://github.com/realvolk/forge-ui.git
-cd forge-ui
+git clone https://github.com/realvolk/forge-gui.git
+cd forge-gui
 pip install -e .
 ```
 
-### Install from a local package
+### System Dependencies
+
+#### Artix Linux
 
 ```bash
-pip install .
+sudo pacman -S gtk3 python-gobject
 ```
 
 ---
 
 ## Quick Start
 
-### Display a menu
+### Display a Menu
 
 ```bash
-forge-ui --mode auto <<< '{"widget":"menu","title":"Init","message":"Choose:","choices":["openrc","runit"]}'
+forge-gui --mode gui <<< '{"widget":"menu","title":"Init","message":"Choose:","choices":["openrc","runit"]}'
 ```
 
-### Ask a yes/no question
+### Ask a Yes/No Question
 
 ```bash
-forge-ui <<< '{"widget":"yesno","title":"Proceed?","message":"Continue?"}'
+forge-gui --mode gui <<< '{"widget":"yesno","title":"Proceed?","message":"Continue?"}'
 ```
 
-### Text input with validation
+### Text Input with Validation
 
 ```bash
-forge-ui <<< '{"widget":"input","title":"Username","message":"Enter name:","default":"artix","validation":"^[a-z][a-z0-9]*$"}'
+forge-gui --mode gui <<< '{"widget":"input","title":"Username","message":"Enter name:","default":"artix"}'
 ```
 
 ---
 
 ## Supported Widgets
 
-| Widget      | Description                           |
-| ----------- | ------------------------------------- |
-| `menu`      | Single-selection list                 |
-| `yesno`     | Boolean question                      |
-| `input`     | Free-form text entry                  |
-| `password`  | Masked text entry                     |
-| `checklist` | Multi-selection list                  |
-| `msg`       | Informational message                 |
-| `summary`   | Scrollable text block                 |
-| `progress`  | Live command output with progress bar |
+| Widget | Description |
+|---------|-------------|
+| `menu` | Single-selection list |
+| `yesno` | Boolean question |
+| `input` | Free-form text entry |
+| `password` | Masked text entry |
+| `checklist` | Multi-selection list |
+| `msg` | Informational message |
+| `summary` | Scrollable text block |
+| `progress` | Live command output with progress bar |
 
-All widgets accept JSON via `stdin` or `--input <file>` and return JSON to `stdout`.
+All widgets accept JSON via `stdin` or `--input <file>` and return JSON to `stderr`.
 
 ---
 
 ## Modes
 
-### `--mode auto` (default)
-
-Prefer GUI if `$DISPLAY` is set, otherwise TUI.
-
-### `--mode tui`
-
-Force terminal UI (Textual).
-
 ### `--mode gui`
 
-Force graphical UI (GTK3).
+Force graphical UI (GTK3). Requires `$DISPLAY` to be set.
+
+### `--mode auto` (default)
+
+Same as `--mode gui` (legacy, kept for compatibility).
 
 ---
 
-## Integration
+## Integration with ArtixForge
 
-ArtixForge replaces its Gum-based `tui_*` functions with simple wrappers that call `forge-ui`. No other scripts need to change.
+ArtixForge detects `$DISPLAY` and calls `forge-gui` for all interactive prompts, replacing the TUI. The same JSON contract allows seamless switching between terminal and graphical installers.
 
 ---
 
 ## License
 
-OpenVolk License 1.0 (see `LICENSE` file).
-
-A broader OSI-approved license may be adopted in the future.
+Volk Open License 1.0 (see `LICENSE` file).

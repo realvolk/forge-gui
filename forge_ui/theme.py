@@ -11,18 +11,7 @@ def get_colors(title=None, accent=None):
     return int(title), int(accent)
 
 def ansi_color(code):
-    """Return ANSI escape for 256-color foreground."""
     return f"\033[38;5;{code}m"
 
 def reset():
     return "\033[0m"
-
-# Alignment mapping for Textual
-ALIGN_MAP = {
-    "left": "left",
-    "center": "center",
-    "right": "right",
-    "top-left": "left",
-    "top-center": "center",
-    "top-right": "right",
-}

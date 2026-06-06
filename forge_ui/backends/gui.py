@@ -9,7 +9,6 @@ from gi.repository import Gtk, GLib, Gdk, Pango
 
 def _color_to_hex(code):
     """Convert 256-color code to approximate hex for GTK CSS."""
-    # Standard 256-color palette mapping (common values)
     palette = {
         212: "#c678dd",  # gentoo purple
         34:  "#98c379",  # gentoo green
@@ -284,7 +283,6 @@ class SummaryWindow(BaseWindow):
 
 class ProgressWindow(BaseWindow):
     def _create_window(self, default_w=800, default_h=600):
-        """Override to use FILL alignment for progress window."""
         self.window = Gtk.Window(title=self.title_text or "forge-ui")
         self.window.set_default_size(default_w, default_h)
         self.window.set_position(Gtk.WindowPosition.CENTER)

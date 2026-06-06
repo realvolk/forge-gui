@@ -23,7 +23,6 @@ def main():
                         help="Accent color (256-color code)")
     args = parser.parse_args()
 
-    # Read input
     try:
         raw = args.input.read()
         data = json.loads(raw) if raw.strip() else {}
@@ -31,14 +30,12 @@ def main():
         json.dump({"error": f"Invalid input JSON: {e}", "cancelled": True}, args.output)
         sys.exit(1)
 
-    # Validate
     try:
         data = validate(data)
     except Exception as e:
         json.dump({"error": str(e), "cancelled": True}, args.output)
         sys.exit(1)
 
-    # Theme colors
     title_color, accent_color = get_colors(args.color_title, args.color_accent)
 
     if args.mode == "gui" or (args.mode == "auto" and os.environ.get("DISPLAY")):
@@ -48,7 +45,6 @@ def main():
         json.dump({"error": "No DISPLAY available – cannot start GUI", "cancelled": True}, args.output)
         sys.exit(1)
 
-    # Run widget
     try:
         result = backend.run(data, title_color=title_color, accent_color=accent_color)
     except Exception as e:

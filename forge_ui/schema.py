@@ -93,7 +93,6 @@ WIDGET_SCHEMAS = {
 
 
 def validate(data):
-    """Validate input JSON against the widget schema. Raises on error."""
     widget = data.get("widget")
     if widget not in WIDGET_SCHEMAS:
         raise ValueError(f"Unknown widget: {widget}")
