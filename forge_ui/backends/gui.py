@@ -2,6 +2,7 @@ import json
 import sys
 import subprocess
 import threading
+import re
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib, Gdk, Pango
@@ -292,6 +293,12 @@ class ProgressWindow(BaseWindow):
         css = f"""
         .title {{ font-size: 18px; font-weight: bold; color: {_color_to_hex(self._title_color)}; }}
         .accent {{ color: {_color_to_hex(self._accent_color)}; }}
+        .logview {{
+            color: {_color_to_hex(self._accent_color)};
+            background-color: #1a1a1a;
+            font-family: monospace;
+            padding: 8px;
+        }}
         """
         provider = Gtk.CssProvider()
         provider.load_from_data(css.encode())
@@ -338,6 +345,7 @@ class ProgressWindow(BaseWindow):
         # Use a monospace font for logs
         font = Pango.FontDescription("monospace 10")
         self.log_view.modify_font(font)
+        self.log_view.get_style_context().add_class("logview")
         
         scrolled.add(self.log_view)
         vbox.pack_start(scrolled, True, True, 0)
@@ -379,9 +387,9 @@ class ProgressWindow(BaseWindow):
         GLib.idle_add(self._done)
 
     def _append_log(self, line):
+        clean = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', line)
         buf = self.log_view.get_buffer()
-        buf.insert(buf.get_end_iter(), line)
-        # Auto-scroll to bottom
+        buf.insert(buf.get_end_iter(), clean)
         self.log_view.scroll_to_iter(buf.get_end_iter(), 0.0, False, 0.0, 0.0)
 
     def _done(self):

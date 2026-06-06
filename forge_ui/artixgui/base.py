@@ -6,6 +6,14 @@ from ..backends.gui import ProgressWindow
 from ..theme import get_colors
 
 class BaseWindow:
+    @staticmethod
+    def _lighten_hex(hex_color, factor=0.2):
+        hex_color = hex_color.lstrip('#')
+        r = min(255, int(int(hex_color[0:2], 16) + (255 - int(hex_color[0:2], 16)) * factor))
+        g = min(255, int(int(hex_color[2:4], 16) + (255 - int(hex_color[2:4], 16)) * factor))
+        b = min(255, int(int(hex_color[4:6], 16) + (255 - int(hex_color[4:6], 16)) * factor))
+        return f"#{r:02x}{g:02x}{b:02x}"
+
     def __init__(self, state_file, state, title="ArtixForge"):
         self.state_file = state_file
         self.state = state
@@ -27,6 +35,179 @@ class BaseWindow:
             self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 1))
         else:
             self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1))
+        
+        # Global styling
+        title_hex = self._color_to_hex(self.title_color)
+        accent_hex = self._color_to_hex(self.accent_color)
+        accent_light = self._lighten_hex(accent_hex)
+
+        css = f"""
+        * {{
+            font-family: "Cantarell", "DejaVu Sans", sans-serif;
+            background-color: transparent;
+        }}
+        window {{
+            background-color: #1e1e1e;
+        }}
+        .title {{
+            font-size: 24px;
+            font-weight: bold;
+            color: {title_hex};
+            margin-bottom: 12px;
+        }}
+        button {{
+            border-radius: 8px;
+            padding: 8px 18px;
+            font-weight: bold;
+            background: #2d2d2d;
+            color: #eeeeee;
+            border: 1px solid #3c3c3c;
+        }}
+        button:hover {{
+            background: #3c3c3c;
+            border-color: {accent_hex};
+        }}
+        button.suggested-action {{
+            background: {accent_hex};
+            color: #1e1e1e;
+            border: none;
+        }}
+        button.suggested-action:hover {{
+            background: {accent_light};
+        }}
+        entry {{
+            border-radius: 6px;
+            padding: 8px 10px;
+            background: #2d2d2d;
+            color: #eeeeee;
+            border: 1px solid #3c3c3c;
+        }}
+        entry:focus {{
+            border-color: {accent_hex};
+        }}
+        combobox {{
+            border-radius: 6px;
+            background: #2d2d2d;
+        }}
+        combobox button {{
+            border-radius: 6px;
+            background: #2d2d2d;
+            color: #eeeeee;
+            padding: 6px 12px;
+        }}
+        combobox button:hover {{
+            background: #3c3c3c;
+        }}
+        menu {{
+            background: #2d2d2d;
+            border: 1px solid #3c3c3c;
+        }}
+        menuitem {{
+            padding: 6px 12px;
+            color: #eeeeee;
+        }}
+        menuitem:hover {{
+            background: {accent_hex};
+            color: #1e1e1e;
+        }}
+        checkbutton {{
+            margin: 4px 0;
+            color: #eeeeee;
+        }}
+        checkbutton check {{
+            border-radius: 4px;
+            background: #2d2d2d;
+            border: 1px solid #3c3c3c;
+            min-width: 16px;
+            min-height: 16px;
+        }}
+        checkbutton check:checked {{
+            background: {accent_hex};
+            border-color: {accent_hex};
+        }}
+        checkbutton:hover check {{
+            border-color: {accent_hex};
+        }}
+        notebook {{
+            background: #252525;
+            border-radius: 8px;
+            padding: 4px;
+        }}
+        notebook tab {{
+            background: #2d2d2d;
+            border-radius: 6px 6px 0 0;
+            padding: 8px 16px;
+            margin-right: 2px;
+            color: #bbbbbb;
+        }}
+        notebook tab:hover {{
+            background: #3c3c3c;
+        }}
+        notebook tab:checked {{
+            background: {accent_hex};
+            color: #1e1e1e;
+            font-weight: bold;
+        }}
+        notebook tab:checked:hover {{
+            background: {accent_light};
+        }}
+        scrolledwindow {{
+            border-radius: 6px;
+            background: #1e1e1e;
+        }}
+        scrolledwindow .frame {{
+            border: 1px solid #3c3c3c;
+            border-radius: 6px;
+        }}
+        textview {{
+            background: #1e1e1e;
+            color: #d0d0d0;
+            padding: 8px;
+            font-family: "Monospace", "Source Code Pro", monospace;
+            font-size: 12px;
+        }}
+        textview text {{
+            background: #1e1e1e;
+            color: #d0d0d0;
+        }}
+        textview text:selected {{
+            background: {accent_hex};
+            color: #1e1e1e;
+        }}
+        progressbar {{
+            min-height: 8px;
+        }}
+        progressbar trough {{
+            background: #2d2d2d;
+            border-radius: 4px;
+            min-height: 8px;
+        }}
+        progressbar progress {{
+            background: {accent_hex};
+            border-radius: 4px;
+        }}
+        spinner {{
+            color: {accent_hex};
+        }}
+        frame {{
+            border-radius: 8px;
+            border: 1px solid #3c3c3c;
+            background: #252525;
+        }}
+        separator {{
+            background-color: #3c3c3c;
+        }}
+        box, grid, centerbox {{
+            background: transparent;
+        }}
+        """
+
+        provider = Gtk.CssProvider()
+        provider.load_from_data(css.encode())
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
         
         # Main vertical box
         main_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -81,10 +262,8 @@ class BaseWindow:
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         install_script = os.path.join(base_dir, "..", "install")
         
-        with open("/tmp/gui-debug.log", "w") as log:
-            log.write(f"Script: {install_script}\n")
-            log.write(f"Exists: {os.path.exists(install_script)}\n")
-            log.write(f"Executable: {os.access(install_script, os.X_OK)}\n")
+        # Hide the config window so user doesn't close it by accident
+        self.window.hide()
         
         progress = ProgressWindow(
             {"title": "Installing ArtixForge", "command": ["sudo", install_script, "--non-interactive"]},
@@ -92,10 +271,15 @@ class BaseWindow:
         )
         result = progress.run()
         
-        with open("/tmp/gui-debug.log", "a") as log:
-            log.write(f"Install result: {result}\n")
-        
-        if result.get("result") == "success":
+        if result.get("cancelled"):
+            dialog = Gtk.MessageDialog(
+                parent=None,
+                flags=Gtk.DialogFlags.MODAL,
+                type=Gtk.MessageType.WARNING,
+                buttons=Gtk.ButtonsType.OK,
+                message_format="Installation cancelled by user."
+            )
+        elif result.get("result") == "success":
             dialog = Gtk.MessageDialog(
                 parent=None,
                 flags=Gtk.DialogFlags.MODAL,
@@ -103,8 +287,6 @@ class BaseWindow:
                 buttons=Gtk.ButtonsType.OK,
                 message_format="Installation completed successfully!"
             )
-            dialog.run()
-            dialog.destroy()
         else:
             dialog = Gtk.MessageDialog(
                 parent=None,
@@ -113,9 +295,8 @@ class BaseWindow:
                 buttons=Gtk.ButtonsType.OK,
                 message_format="Installation failed. Check logs for details."
             )
-            dialog.run()
-            dialog.destroy()
-        
+        dialog.run()
+        dialog.destroy()
         Gtk.main_quit()
     
     def on_back(self, widget):
