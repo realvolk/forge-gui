@@ -796,3 +796,5 @@ class CommonPages:
             if hasattr(self, 'poweruser_packages'):
                 selected = [cb.get_label() for cb in self.poweruser_packages if cb.get_active()]
                 self.state['POWERUSER_PACKAGES'] = " ".join(selected)
+
+    self.state['GUI_MODE'] = "yes"
