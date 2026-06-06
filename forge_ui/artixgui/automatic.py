@@ -51,6 +51,7 @@ class AutomaticWindow(BaseWindow, CommonPages):
         
         self.luks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         self.luks_box.set_margin_start(20)
+        self.luks_box.set_no_show_all(True)
         pass_label = Gtk.Label(label="LUKS Passphrase:", xalign=0)
         self.luks_box.pack_start(pass_label, False, False, 0)
         self.luks_pass_entry = Gtk.Entry()
@@ -64,11 +65,7 @@ class AutomaticWindow(BaseWindow, CommonPages):
         self.luks_confirm_entry.set_invisible_char("*")
         self.luks_box.pack_start(self.luks_confirm_entry, False, False, 0)
         box.pack_start(self.luks_box, False, False, 0)
-        self.luks_box.set_visible(False)
-        self.luks_check.connect("toggled", self.on_luks_toggled)
-        
-        box.pack_start(self.luks_box, False, False, 0)
-        self.luks_box.hide()  # was set_visible(False)
+        self.luks_box.hide()
         self.luks_check.connect("toggled", self.on_luks_toggled)
 
         self.lvm_check = Gtk.CheckButton(label="Enable LVM")
@@ -78,7 +75,7 @@ class AutomaticWindow(BaseWindow, CommonPages):
     
     def on_luks_toggled(self, check):
         if check.get_active():
-            self.luks_box.show()
+            self.luks_box.show_all()
         else:
             self.luks_box.hide()
 
