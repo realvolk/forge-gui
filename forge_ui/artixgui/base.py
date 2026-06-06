@@ -134,7 +134,10 @@ class BaseWindow:
         return self.state
 
 
-class CommonPages:
+class CommonPages:    
+    def __init_common_pages(self):
+        self.__extras_notebook = None
+        self.__extras_checkboxes = {}
     
     def create_welcome_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -368,7 +371,6 @@ class CommonPages:
         return box
     
     def create_extras_page(self):
-        self.extras_checkboxes = {}
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         
         shell_label = Gtk.Label(label="Select user shell:", xalign=0)
@@ -400,7 +402,8 @@ class CommonPages:
             "Media": ["mpv", "feh"]
         }
         
-        self.extras_checkboxes = {}
+        self.__extras_checkboxes = {}
+        self.__extras_notebook = notebook
         
         for cat_name, pkgs in categories.items():
             page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
@@ -410,10 +413,10 @@ class CommonPages:
             for pkg in pkgs:
                 check = Gtk.CheckButton(label=pkg)
                 page_box.pack_start(check, False, False, 0)
-                self.extras_checkboxes[pkg] = check
+                self.__extras_checkboxes[pkg] = check
             
             select_all = Gtk.Button(label=f"Select All {cat_name}")
-            select_all.connect("clicked", self.on_select_all, pkgs)
+            select_all.connect("clicked", self.on_select_all, (cat_name, pkgs))
             page_box.pack_start(select_all, False, False, 5)
             
             notebook.append_page(page_box, Gtk.Label(label=cat_name))
@@ -422,10 +425,11 @@ class CommonPages:
         
         return box
     
-    def on_select_all(self, widget, pkgs):
+    def on_select_all(self, widget, data):
+        cat_name, pkgs = data
         for pkg in pkgs:
-            if pkg in self.extras_checkboxes:
-                self.extras_checkboxes[pkg].set_active(True)
+            if pkg in self.__extras_checkboxes:
+                self.__extras_checkboxes[pkg].set_active(True)
     
     def create_users_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -704,13 +708,23 @@ class CommonPages:
             if iter:
                 self.state['USER_SHELL'] = self.shell_combo.get_model()[iter][0]
         
-        # Extras
-        if hasattr(self, 'extras_checkboxes'):
-            # Force it to be a dictionary
-            if not isinstance(self.extras_checkboxes, dict):
-                self.extras_checkboxes = {}
-            extras = [pkg for pkg, cb in self.extras_checkboxes.items() if cb and cb.get_active()]
-            self.state['EXTRAS'] = " ".join(extras)
+        # Extras (NO STATE CORRUPTION EDITION)
+        extras = []
+        if hasattr(self, '_CommonPages__extras_notebook') and self._CommonPages__extras_notebook is not None:
+            notebook = self._CommonPages__extras_notebook
+            for i in range(notebook.get_n_pages()):
+                page_box = notebook.get_nth_page(i)  # Gtk.Box
+                for child in page_box.get_children():
+                    if isinstance(child, Gtk.CheckButton):
+                        if child.get_active():
+                            extras.append(child.get_label())
+        elif hasattr(self, '_CommonPages__extras_checkboxes'):
+            cb_dict = self._CommonPages__extras_checkboxes
+            if isinstance(cb_dict, dict):
+                for pkg, cb in cb_dict.items():
+                    if cb and hasattr(cb, 'get_active') and cb.get_active():
+                        extras.append(pkg)
+        self.state['EXTRAS'] = " ".join(extras)
 
         # Hostname
         if hasattr(self, 'hostname_entry'):
