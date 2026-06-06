@@ -1,26 +1,32 @@
 #!/usr/bin/env python3
-import json
 import os
 import subprocess
-import sys
-from gi.repository import Gtk, GLib, Pango
+from gi.repository import Gtk, Gdk
+from ..backends.gui import ProgressWindow
+from ..theme import get_colors
 
-from .theme import get_colors
-from .backends.gui import ProgressWindow
-
-class ArtixForgeWindow:
-    def __init__(self, state_file):
+class BaseWindow:
+    def __init__(self, state_file, state, title="ArtixForge"):
         self.state_file = state_file
-        self.state = {}
-        self.load_state()
+        self.state = state
+        self.pages = []
+        self.current_page = 0
         
-        # Theme colors from environment
         title_color, accent_color = get_colors()
+        self.title_color = title_color
+        self.accent_color = accent_color
         
-        self.window = Gtk.Window(title="ArtixForge Installer")
+        self.window = Gtk.Window(title=title)
         self.window.set_default_size(900, 700)
         self.window.set_position(Gtk.WindowPosition.CENTER)
         self.window.connect("destroy", Gtk.main_quit)
+        
+        # Background colour
+        bg = self.state.get("GUI_BACKGROUND", "black")
+        if bg == "white":
+            self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 1))
+        else:
+            self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1))
         
         # Main vertical box
         main_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -37,22 +43,6 @@ class ArtixForgeWindow:
         self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
         main_vbox.pack_start(self.stack, True, True, 0)
         
-        # Add all pages
-        self.pages = []
-        self.add_page("Welcome", self.create_welcome_page())
-        self.add_page("Theme", self.create_theme_page())
-        self.add_page("Disk & Partitioning", self.create_disk_page())
-        self.add_page("Filesystem", self.create_filesystem_page())
-        self.add_page("Bootloader", self.create_bootloader_page())
-        self.add_page("Kernel", self.create_kernel_page())
-        self.add_page("Init System", self.create_init_page())
-        self.add_page("Desktop", self.create_desktop_page())
-        self.add_page("Network & Audio", self.create_network_audio_page())
-        self.add_page("Shell & Extras", self.create_extras_page())
-        self.add_page("Users", self.create_users_page())
-        self.add_page("Privilege & Power", self.create_privilege_page())
-        self.add_page("Summary", self.create_summary_page())
-        
         # Navigation buttons
         nav_box = Gtk.Box(spacing=10)
         nav_box.set_halign(Gtk.Align.CENTER)
@@ -65,32 +55,13 @@ class ArtixForgeWindow:
         
         self.next_btn = Gtk.Button(label="Next")
         self.next_btn.connect("clicked", self.on_next)
-        self.next_btn.set_hexpand(True)
         nav_box.pack_start(self.next_btn, False, False, 0)
         
         main_vbox.pack_start(nav_box, False, False, 0)
-        
-        self.current_page = 0
-        self.stack.set_visible_child(self.pages[self.current_page])
-        
-        self.window.show_all()
     
     def add_page(self, title, page):
         self.stack.add_titled(page, title, title)
         self.pages.append(page)
-    
-    def load_state(self):
-        if os.path.exists(self.state_file):
-            try:
-                with open(self.state_file, 'r') as f:
-                    for line in f:
-                        line = line.strip()
-                        if '=' in line:
-                            key, value = line.split('=', 1)
-                            value = value.strip('"').replace('\\"', '"')
-                            self.state[key] = value
-            except Exception as e:
-                print(f"Warning: Could not load state: {e}")
     
     def save_state(self):
         try:
@@ -100,51 +71,11 @@ class ArtixForgeWindow:
         except Exception as e:
             print(f"Error saving state: {e}")
     
-    def on_back(self, widget):
-        if self.current_page > 0:
-            self.current_page -= 1
-            self.stack.set_visible_child(self.pages[self.current_page])
-            self.update_nav_buttons()
-    
-    def on_next(self, widget):
-        if self.current_page < len(self.pages) - 1:
-            self.current_page += 1
-            self.stack.set_visible_child(self.pages[self.current_page])
-            self.update_nav_buttons()
-        else:
-            # Save configuration without running installer
-            self.collect_state()
-            self.save_state()
-            
-            dialog = Gtk.MessageDialog(
-                parent=self.window,
-                flags=Gtk.DialogFlags.MODAL,
-                type=Gtk.MessageType.INFO,
-                buttons=Gtk.ButtonsType.OK,
-                message_format="Configuration saved to /tmp/artix-installer/state.conf\n\nYou can now run the installer manually."
-            )
-            dialog.run()
-            dialog.destroy()
-            
-            Gtk.main_quit()
-    
-    def update_nav_buttons(self):
-        self.back_btn.set_sensitive(self.current_page > 0)
-        if self.current_page == len(self.pages) - 1:
-            self.next_btn.set_label("Install")
-        else:
-            self.next_btn.set_label("Next")
-    
-    def start_installation(self):
-        # Save all values to state before installation
-        self.collect_state()
+    def run_installer(self):
         self.save_state()
-        
-        self.window.destroy()
-        
         progress = ProgressWindow(
             {"title": "Installing ArtixForge", "command": ["sudo", "./install", "--non-interactive"]},
-            title_color=212, accent_color=34
+            title_color=self.title_color, accent_color=self.accent_color
         )
         result = progress.run()
         
@@ -171,181 +102,40 @@ class ArtixForgeWindow:
         
         Gtk.main_quit()
     
-    def collect_state(self):
-        # Theme
-        if hasattr(self, 'theme_combo'):
-            iter = self.theme_combo.get_active_iter()
-            if iter:
-                theme = self.theme_combo.get_model()[iter][0]
-                if theme == "Gentoo":
-                    self.state['GUM_TITLE_COLOR'] = "212"
-                    self.state['GUM_ACCENT_COLOR'] = "34"
-                elif theme == "Artix":
-                    self.state['GUM_TITLE_COLOR'] = "39"
-                    self.state['GUM_ACCENT_COLOR'] = "117"
-                elif theme == "Jet Black":
-                    self.state['GUM_TITLE_COLOR'] = "245"
-                    self.state['GUM_ACCENT_COLOR'] = "196"
-                elif theme == "Mono":
-                    self.state['GUM_TITLE_COLOR'] = "250"
-                    self.state['GUM_ACCENT_COLOR'] = "255"
-                elif theme == "Retro":
-                    self.state['GUM_TITLE_COLOR'] = "3"
-                    self.state['GUM_ACCENT_COLOR'] = "11"
-        
-        # Disk
-        if hasattr(self, 'disk_combo'):
-            iter = self.disk_combo.get_active_iter()
-            if iter:
-                self.state['DISK'] = self.disk_combo.get_model()[iter][0]
-        
-        # Swap
-        if hasattr(self, 'swap_check'):
-            self.state['SWAP_ENABLED'] = "yes" if self.swap_check.get_active() else "no"
-        
-        # LUKS
-        if hasattr(self, 'luks_check'):
-            self.state['USE_LUKS'] = "yes" if self.luks_check.get_active() else "no"
-            if hasattr(self, 'luks_pass_entry') and self.luks_check.get_active():
-                self.state['LUKS_PASS'] = self.luks_pass_entry.get_text()
-        
-        # LVM
-        if hasattr(self, 'lvm_check'):
-            self.state['USE_LVM'] = "yes" if self.lvm_check.get_active() else "no"
-        
-        # Filesystem
-        if hasattr(self, 'fs_combo'):
-            iter = self.fs_combo.get_active_iter()
-            if iter:
-                self.state['FS_TYPE'] = self.fs_combo.get_model()[iter][0]
-        
-        # BTRFS layout
-        if hasattr(self, 'btrfs_combo') and self.state.get('FS_TYPE') == "btrfs":
-            iter = self.btrfs_combo.get_active_iter()
-            if iter:
-                self.state['BTRFS_LAYOUT'] = self.btrfs_combo.get_model()[iter][0]
-        
-        # Bootloader
-        if hasattr(self, 'bl_combo'):
-            iter = self.bl_combo.get_active_iter()
-            if iter:
-                self.state['BOOTLOADER'] = self.bl_combo.get_model()[iter][0]
-        
-        # UKI
-        if hasattr(self, 'uki_check'):
-            self.state['GENERATE_UKI'] = "yes" if self.uki_check.get_active() else "no"
-        
-        # Kernel
-        if hasattr(self, 'kernel_combo'):
-            iter = self.kernel_combo.get_active_iter()
-            if iter:
-                self.state['KERNEL_CHOICE'] = self.kernel_combo.get_model()[iter][0]
-        
-        # Microcode
-        if hasattr(self, 'microcode_combo'):
-            iter = self.microcode_combo.get_active_iter()
-            if iter:
-                self.state['MICROCODE_OVERRIDE'] = self.microcode_combo.get_model()[iter][0]
-        
-        # Init
-        if hasattr(self, 'init_combo'):
-            iter = self.init_combo.get_active_iter()
-            if iter:
-                self.state['INIT'] = self.init_combo.get_model()[iter][0]
-        
-        # Desktop
-        if hasattr(self, 'de_combo'):
-            iter = self.de_combo.get_active_iter()
-            if iter:
-                self.state['WM_DE'] = self.de_combo.get_model()[iter][0]
-        
-        # Display manager
-        if hasattr(self, 'dm_combo'):
-            iter = self.dm_combo.get_active_iter()
-            if iter:
-                self.state['DISPLAY_MANAGER'] = self.dm_combo.get_model()[iter][0]
-        
-        # Network
-        if hasattr(self, 'net_combo'):
-            iter = self.net_combo.get_active_iter()
-            if iter:
-                self.state['NETWORK_STACK'] = self.net_combo.get_model()[iter][0]
-        
-        # Audio
-        if hasattr(self, 'audio_combo'):
-            iter = self.audio_combo.get_active_iter()
-            if iter:
-                self.state['AUDIO_STACK'] = self.audio_combo.get_model()[iter][0]
-        
-        # Shell
-        if hasattr(self, 'shell_combo'):
-            iter = self.shell_combo.get_active_iter()
-            if iter:
-                self.state['USER_SHELL'] = self.shell_combo.get_model()[iter][0]
-        
-        # Extras
-        if hasattr(self, 'extras_checkboxes'):
-            extras = [cb.get_label() for cb in self.extras_checkboxes if cb.get_active()]
-            self.state['EXTRAS'] = " ".join(extras)
-        
-        # Hostname
-        if hasattr(self, 'hostname_entry'):
-            self.state['HOSTNAME'] = self.hostname_entry.get_text()
-        
-        # Timezone
-        if hasattr(self, 'timezone_entry'):
-            self.state['TIMEZONE'] = self.timezone_entry.get_text()
-        
-        # Locale
-        if hasattr(self, 'locale_entry'):
-            self.state['LOCALE'] = self.locale_entry.get_text()
-        
-        # Keymap
-        if hasattr(self, 'keymap_entry'):
-            self.state['KEYMAP'] = self.keymap_entry.get_text()
-        
-        # Username
-        if hasattr(self, 'username_entry'):
-            self.state['USER_NAME'] = self.username_entry.get_text()
-        
-        # User password
-        if hasattr(self, 'user_pass_entry'):
-            self.state['USER_PASS'] = self.user_pass_entry.get_text()
-        
-        # Root password
-        if hasattr(self, 'root_pass_entry'):
-            self.state['ROOT_PASS'] = self.root_pass_entry.get_text()
-        
-        # Privilege escalation
-        if hasattr(self, 'priv_combo'):
-            iter = self.priv_combo.get_active_iter()
-            if iter:
-                self.state['PRIV_ESCALATION'] = self.priv_combo.get_model()[iter][0]
-        
-        # Arch repos
-        if hasattr(self, 'arch_repos_check'):
-            self.state['ENABLE_ARCH_REPOS'] = "yes" if self.arch_repos_check.get_active() else "no"
-        
-        # Offline mode
-        if hasattr(self, 'offline_check'):
-            self.state['ALLOW_OFFLINE'] = "yes" if self.offline_check.get_active() else "no"
-        
-        # Power User
-        if hasattr(self, 'poweruser_check'):
-            self.state['POWER_USER'] = "yes" if self.poweruser_check.get_active() else "no"
-            if hasattr(self, 'coreutils_combo') and self.poweruser_check.get_active():
-                iter = self.coreutils_combo.get_active_iter()
-                if iter:
-                    self.state['COREUTILS'] = self.coreutils_combo.get_model()[iter][0]
-            if hasattr(self, 'keep_binary_check'):
-                self.state['KEEP_BINARY_KERNEL'] = "yes" if self.keep_binary_check.get_active() else "no"
-            
-            # Power User packages (from checklist)
-            if hasattr(self, 'poweruser_packages'):
-                selected = [cb.get_label() for cb in self.poweruser_packages if cb.get_active()]
-                self.state['POWERUSER_PACKAGES'] = " ".join(selected)
+    def on_back(self, widget):
+        if self.current_page > 0:
+            self.current_page -= 1
+            self.stack.set_visible_child(self.pages[self.current_page])
+            self.update_nav_buttons()
     
-    # Page creation methods
+    def on_next(self, widget):
+        if self.current_page < len(self.pages) - 1:
+            self.current_page += 1
+            self.stack.set_visible_child(self.pages[self.current_page])
+            self.update_nav_buttons()
+        else:
+            self.start_installation()
+    
+    def update_nav_buttons(self):
+        self.back_btn.set_sensitive(self.current_page > 0)
+        if self.current_page == len(self.pages) - 1:
+            self.next_btn.set_label("Install")
+        else:
+            self.next_btn.set_label("Next")
+    
+    def start_installation(self):
+        self.run_installer()
+    
+    def run(self):
+        self.stack.set_visible_child(self.pages[0])
+        self.update_nav_buttons()
+        self.window.show_all()
+        Gtk.main()
+        return self.state
+
+
+class CommonPages:
+    
     def create_welcome_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         box.set_valign(Gtk.Align.CENTER)
@@ -391,77 +181,12 @@ class ArtixForgeWindow:
                 "Mono": ("#a89984", "#ffffff"),
                 "Retro": ("#d19a66", "#e5c07b"),
             }
-            title_color, accent_color = colors.get(theme, ("#c678dd", "#98c379"))
+            title_color, _ = colors.get(theme, ("#c678dd", "#98c379"))
             preview.set_markup(f'<span foreground="{title_color}" weight="bold">This is how titles will look</span>')
         
         self.theme_combo.connect("changed", on_theme_changed)
         
         return box
-    
-    def create_disk_page(self):
-        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        
-        # Disk selection
-        label = Gtk.Label(label="Select target disk:", xalign=0)
-        box.pack_start(label, False, False, 0)
-        
-        disk_store = Gtk.ListStore(str, str)
-        result = subprocess.run(['lsblk', '-dpno', 'NAME,SIZE,MODEL', '-e', '7'], 
-                               capture_output=True, text=True)
-        for line in result.stdout.strip().split('\n'):
-            if line.strip():
-                parts = line.split(' ', 1)
-                name = parts[0]
-                rest = parts[1] if len(parts) > 1 else ""
-                disk_store.append([name, rest])
-        
-        self.disk_combo = Gtk.ComboBox.new_with_model(disk_store)
-        renderer_text = Gtk.CellRendererText()
-        self.disk_combo.pack_start(renderer_text, True)
-        self.disk_combo.add_attribute(renderer_text, "text", 0)
-        box.pack_start(self.disk_combo, False, False, 0)
-        
-        # Swap
-        self.swap_check = Gtk.CheckButton(label="Create swap partition")
-        box.pack_start(self.swap_check, False, False, 5)
-        
-        # LUKS
-        self.luks_check = Gtk.CheckButton(label="Enable LUKS encryption")
-        box.pack_start(self.luks_check, False, False, 5)
-        
-        # LUKS passphrase (initially hidden)
-        self.luks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        self.luks_box.set_margin_start(20)
-        
-        pass_label = Gtk.Label(label="LUKS Passphrase:", xalign=0)
-        self.luks_box.pack_start(pass_label, False, False, 0)
-        
-        self.luks_pass_entry = Gtk.Entry()
-        self.luks_pass_entry.set_visibility(False)
-        self.luks_pass_entry.set_invisible_char("*")
-        self.luks_box.pack_start(self.luks_pass_entry, False, False, 0)
-        
-        confirm_label = Gtk.Label(label="Confirm Passphrase:", xalign=0)
-        self.luks_box.pack_start(confirm_label, False, False, 0)
-        
-        self.luks_confirm_entry = Gtk.Entry()
-        self.luks_confirm_entry.set_visibility(False)
-        self.luks_confirm_entry.set_invisible_char("*")
-        self.luks_box.pack_start(self.luks_confirm_entry, False, False, 0)
-        
-        box.pack_start(self.luks_box, False, False, 0)
-        self.luks_box.set_visible(False)
-        
-        self.luks_check.connect("toggled", self.on_luks_toggled)
-        
-        # LVM
-        self.lvm_check = Gtk.CheckButton(label="Enable LVM")
-        box.pack_start(self.lvm_check, False, False, 5)
-        
-        return box
-    
-    def on_luks_toggled(self, check):
-        self.luks_box.set_visible(check.get_active())
     
     def create_filesystem_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -661,65 +386,79 @@ class ArtixForgeWindow:
         extras_label = Gtk.Label(label="Extra packages:", xalign=0)
         box.pack_start(extras_label, False, False, 10)
         
-        scroll = Gtk.ScrolledWindow()
-        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scroll.set_min_content_height(200)
+        notebook = Gtk.Notebook()
         
-        extras_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        extras = ["git", "flatpak", "fastfetch", "firewalld", "bluez", 
-                  "zram-tools", "fzf", "zoxide", "starship", "eza", 
-                  "btop", "tmux", "rsvc"]
+        categories = {
+            "System Tools": ["git", "flatpak", "fastfetch", "firewalld", "bluez", "zram-tools", "usb_modeswitch"],
+            "Editors": ["nano", "vim", "neovim", "micro", "helix"],
+            "Browsers": ["firefox", "chromium", "qutebrowser"],
+            "File Managers": ["ranger", "lf", "nnn", "thunar"],
+            "Terminals": ["alacritty", "kitty", "foot"],
+            "Shell & Prompt": ["fzf", "zoxide", "starship", "eza", "tmux"],
+            "Monitoring": ["btop", "htop", "nvtop"],
+            "Media": ["mpv", "feh"]
+        }
         
-        self.extras_checkboxes = []
-        for extra in extras:
-            check = Gtk.CheckButton(label=extra)
-            self.extras_checkboxes.append(check)
-            extras_box.pack_start(check, False, False, 0)
+        self.extras_checkboxes = {}
         
-        scroll.add(extras_box)
-        box.pack_start(scroll, True, True, 0)
+        for cat_name, pkgs in categories.items():
+            page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+            page_box.set_margin_start(10)
+            page_box.set_margin_top(10)
+            
+            for pkg in pkgs:
+                check = Gtk.CheckButton(label=pkg)
+                page_box.pack_start(check, False, False, 0)
+                self.extras_checkboxes[pkg] = check
+            
+            select_all = Gtk.Button(label=f"Select All {cat_name}")
+            select_all.connect("clicked", self.on_select_all, pkgs)
+            page_box.pack_start(select_all, False, False, 5)
+            
+            notebook.append_page(page_box, Gtk.Label(label=cat_name))
+        
+        box.pack_start(notebook, True, True, 0)
         
         return box
+    
+    def on_select_all(self, widget, pkgs):
+        for pkg in pkgs:
+            if pkg in self.extras_checkboxes:
+                self.extras_checkboxes[pkg].set_active(True)
     
     def create_users_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         
-        # Hostname
         hostname_label = Gtk.Label(label="Hostname:", xalign=0)
         box.pack_start(hostname_label, False, False, 0)
         self.hostname_entry = Gtk.Entry()
         self.hostname_entry.set_text("artix")
         box.pack_start(self.hostname_entry, False, False, 0)
         
-        # Timezone
         tz_label = Gtk.Label(label="Timezone:", xalign=0)
         box.pack_start(tz_label, False, False, 5)
         self.timezone_entry = Gtk.Entry()
         self.timezone_entry.set_text("Europe/Belgrade")
         box.pack_start(self.timezone_entry, False, False, 0)
         
-        # Locale
         locale_label = Gtk.Label(label="Locale:", xalign=0)
         box.pack_start(locale_label, False, False, 5)
         self.locale_entry = Gtk.Entry()
         self.locale_entry.set_text("en_US.UTF-8")
         box.pack_start(self.locale_entry, False, False, 0)
         
-        # Keymap
         keymap_label = Gtk.Label(label="Keyboard layout:", xalign=0)
         box.pack_start(keymap_label, False, False, 5)
         self.keymap_entry = Gtk.Entry()
         self.keymap_entry.set_text("us")
         box.pack_start(self.keymap_entry, False, False, 0)
         
-        # Username
         username_label = Gtk.Label(label="Username:", xalign=0)
         box.pack_start(username_label, False, False, 5)
         self.username_entry = Gtk.Entry()
         self.username_entry.set_text("artix")
         box.pack_start(self.username_entry, False, False, 0)
         
-        # User password
         user_pass_label = Gtk.Label(label="User Password:", xalign=0)
         box.pack_start(user_pass_label, False, False, 5)
         self.user_pass_entry = Gtk.Entry()
@@ -734,7 +473,6 @@ class ArtixForgeWindow:
         self.user_confirm_entry.set_invisible_char("*")
         box.pack_start(self.user_confirm_entry, False, False, 0)
         
-        # Root password
         root_pass_label = Gtk.Label(label="Root Password:", xalign=0)
         box.pack_start(root_pass_label, False, False, 5)
         self.root_pass_entry = Gtk.Entry()
@@ -754,7 +492,6 @@ class ArtixForgeWindow:
     def create_privilege_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         
-        # Privilege escalation
         priv_label = Gtk.Label(label="Privilege escalation:", xalign=0)
         box.pack_start(priv_label, False, False, 0)
         
@@ -768,19 +505,15 @@ class ArtixForgeWindow:
         self.priv_combo.add_attribute(renderer_text, "text", 0)
         box.pack_start(self.priv_combo, False, False, 0)
         
-        # Arch repos
         self.arch_repos_check = Gtk.CheckButton(label="Enable Arch Linux repositories")
         box.pack_start(self.arch_repos_check, False, False, 5)
         
-        # Offline mode
         self.offline_check = Gtk.CheckButton(label="Enable offline installation mode (cached packages)")
         box.pack_start(self.offline_check, False, False, 5)
         
-        # Power User
         self.poweruser_check = Gtk.CheckButton(label="Enable Power User Mode (source compilation)")
         box.pack_start(self.poweruser_check, False, False, 10)
         
-        # Power User options (initially hidden)
         self.poweruser_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.poweruser_box.set_margin_start(20)
         
@@ -804,7 +537,6 @@ class ArtixForgeWindow:
         self.keep_binary_check.set_active(True)
         self.poweruser_box.pack_start(self.keep_binary_check, False, False, 0)
         
-        # Power User packages checklist
         packages_label = Gtk.Label(label="Packages to build from source:", xalign=0)
         self.poweruser_box.pack_start(packages_label, False, False, 5)
         
@@ -859,15 +591,13 @@ class ArtixForgeWindow:
             self.update_summary()
     
     def update_summary(self):
-        # Collect current state for display
         self.collect_state()
         
         summary = "Installation Summary:\n\n"
         for key, value in sorted(self.state.items()):
-            if key not in ['LUKS_PASS', 'USER_PASS', 'ROOT_PASS']:  # Skip passwords
+            if key not in ['LUKS_PASS', 'USER_PASS', 'ROOT_PASS']:
                 summary += f"{key}: {value}\n"
         
-        # Add warnings for dangerous combinations
         warnings = []
         if self.state.get('POWER_USER') == "yes" and "glibc" in self.state.get('POWERUSER_PACKAGES', ""):
             warnings.append("glibc from source is DANGEROUS – a miscompilation breaks everything")
@@ -881,11 +611,154 @@ class ArtixForgeWindow:
         
         self.summary_text.get_buffer().set_text(summary)
     
-    def run(self):
-        Gtk.main()
-        return self.state
-
-
-def run_artixforge_window(state_file):
-    window = ArtixForgeWindow(state_file)
-    window.run()
+    def collect_state_common(self):
+        # Theme
+        if hasattr(self, 'theme_combo'):
+            iter = self.theme_combo.get_active_iter()
+            if iter:
+                theme = self.theme_combo.get_model()[iter][0]
+                if theme == "Gentoo":
+                    self.state['GUM_TITLE_COLOR'] = "212"
+                    self.state['GUM_ACCENT_COLOR'] = "34"
+                elif theme == "Artix":
+                    self.state['GUM_TITLE_COLOR'] = "39"
+                    self.state['GUM_ACCENT_COLOR'] = "117"
+                elif theme == "Jet Black":
+                    self.state['GUM_TITLE_COLOR'] = "245"
+                    self.state['GUM_ACCENT_COLOR'] = "196"
+                elif theme == "Mono":
+                    self.state['GUM_TITLE_COLOR'] = "250"
+                    self.state['GUM_ACCENT_COLOR'] = "255"
+                elif theme == "Retro":
+                    self.state['GUM_TITLE_COLOR'] = "3"
+                    self.state['GUM_ACCENT_COLOR'] = "11"
+        
+        # Filesystem
+        if hasattr(self, 'fs_combo'):
+            iter = self.fs_combo.get_active_iter()
+            if iter:
+                self.state['FS_TYPE'] = self.fs_combo.get_model()[iter][0]
+        
+        # BTRFS layout
+        if hasattr(self, 'btrfs_combo') and self.state.get('FS_TYPE') == "btrfs":
+            iter = self.btrfs_combo.get_active_iter()
+            if iter:
+                self.state['BTRFS_LAYOUT'] = self.btrfs_combo.get_model()[iter][0]
+        
+        # Bootloader
+        if hasattr(self, 'bl_combo'):
+            iter = self.bl_combo.get_active_iter()
+            if iter:
+                self.state['BOOTLOADER'] = self.bl_combo.get_model()[iter][0]
+        
+        # UKI
+        if hasattr(self, 'uki_check'):
+            self.state['GENERATE_UKI'] = "yes" if self.uki_check.get_active() else "no"
+        
+        # Kernel
+        if hasattr(self, 'kernel_combo'):
+            iter = self.kernel_combo.get_active_iter()
+            if iter:
+                self.state['KERNEL_CHOICE'] = self.kernel_combo.get_model()[iter][0]
+        
+        # Microcode
+        if hasattr(self, 'microcode_combo'):
+            iter = self.microcode_combo.get_active_iter()
+            if iter:
+                self.state['MICROCODE_OVERRIDE'] = self.microcode_combo.get_model()[iter][0]
+        
+        # Init
+        if hasattr(self, 'init_combo'):
+            iter = self.init_combo.get_active_iter()
+            if iter:
+                self.state['INIT'] = self.init_combo.get_model()[iter][0]
+        
+        # Desktop
+        if hasattr(self, 'de_combo'):
+            iter = self.de_combo.get_active_iter()
+            if iter:
+                self.state['WM_DE'] = self.de_combo.get_model()[iter][0]
+        
+        # Display manager
+        if hasattr(self, 'dm_combo'):
+            iter = self.dm_combo.get_active_iter()
+            if iter:
+                self.state['DISPLAY_MANAGER'] = self.dm_combo.get_model()[iter][0]
+        
+        # Network
+        if hasattr(self, 'net_combo'):
+            iter = self.net_combo.get_active_iter()
+            if iter:
+                self.state['NETWORK_STACK'] = self.net_combo.get_model()[iter][0]
+        
+        # Audio
+        if hasattr(self, 'audio_combo'):
+            iter = self.audio_combo.get_active_iter()
+            if iter:
+                self.state['AUDIO_STACK'] = self.audio_combo.get_model()[iter][0]
+        
+        # Shell
+        if hasattr(self, 'shell_combo'):
+            iter = self.shell_combo.get_active_iter()
+            if iter:
+                self.state['USER_SHELL'] = self.shell_combo.get_model()[iter][0]
+        
+        # Extras
+        if hasattr(self, 'extras_checkboxes'):
+            extras = [cb.get_label() for cb in self.extras_checkboxes if cb.get_active()]
+            self.state['EXTRAS'] = " ".join(extras)
+        
+        # Hostname
+        if hasattr(self, 'hostname_entry'):
+            self.state['HOSTNAME'] = self.hostname_entry.get_text()
+        
+        # Timezone
+        if hasattr(self, 'timezone_entry'):
+            self.state['TIMEZONE'] = self.timezone_entry.get_text()
+        
+        # Locale
+        if hasattr(self, 'locale_entry'):
+            self.state['LOCALE'] = self.locale_entry.get_text()
+        
+        # Keymap
+        if hasattr(self, 'keymap_entry'):
+            self.state['KEYMAP'] = self.keymap_entry.get_text()
+        
+        # Username
+        if hasattr(self, 'username_entry'):
+            self.state['USER_NAME'] = self.username_entry.get_text()
+        
+        # User password
+        if hasattr(self, 'user_pass_entry'):
+            self.state['USER_PASS'] = self.user_pass_entry.get_text()
+        
+        # Root password
+        if hasattr(self, 'root_pass_entry'):
+            self.state['ROOT_PASS'] = self.root_pass_entry.get_text()
+        
+        # Privilege escalation
+        if hasattr(self, 'priv_combo'):
+            iter = self.priv_combo.get_active_iter()
+            if iter:
+                self.state['PRIV_ESCALATION'] = self.priv_combo.get_model()[iter][0]
+        
+        # Arch repos
+        if hasattr(self, 'arch_repos_check'):
+            self.state['ENABLE_ARCH_REPOS'] = "yes" if self.arch_repos_check.get_active() else "no"
+        
+        # Offline mode
+        if hasattr(self, 'offline_check'):
+            self.state['ALLOW_OFFLINE'] = "yes" if self.offline_check.get_active() else "no"
+        
+        # Power User
+        if hasattr(self, 'poweruser_check'):
+            self.state['POWER_USER'] = "yes" if self.poweruser_check.get_active() else "no"
+            if hasattr(self, 'coreutils_combo') and self.poweruser_check.get_active():
+                iter = self.coreutils_combo.get_active_iter()
+                if iter:
+                    self.state['COREUTILS'] = self.coreutils_combo.get_model()[iter][0]
+            if hasattr(self, 'keep_binary_check'):
+                self.state['KEEP_BINARY_KERNEL'] = "yes" if self.keep_binary_check.get_active() else "no"
+            if hasattr(self, 'poweruser_packages'):
+                selected = [cb.get_label() for cb in self.poweruser_packages if cb.get_active()]
+                self.state['POWERUSER_PACKAGES'] = " ".join(selected)

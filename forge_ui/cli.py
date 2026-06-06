@@ -25,10 +25,10 @@ def main():
 
     # Config mode: launch persistent configuration window
     if args.mode == "config":
-        from .artixforge_window import run_artixforge_window
+        from .artixgui import run_dispatcher
         state_file = "/tmp/artix-installer/state.conf"
         os.makedirs(os.path.dirname(state_file), exist_ok=True)
-        run_artixforge_window(state_file)
+        run_dispatcher(state_file)
         sys.exit(0)
 
     try:
