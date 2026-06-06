@@ -81,14 +81,10 @@ class BaseWindow:
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         install_script = os.path.join(base_dir, "install")
         
-        # Debug to test if the script is executable
-        import stat
-        script_exists = os.path.exists(install_script)
-        script_exec = os.access(install_script, os.X_OK)
         with open("/tmp/gui-debug.log", "w") as log:
             log.write(f"Script: {install_script}\n")
-            log.write(f"Exists: {script_exists}\n")
-            log.write(f"Executable: {script_exec}\n")
+            log.write(f"Exists: {os.path.exists(install_script)}\n")
+            log.write(f"Executable: {os.access(install_script, os.X_OK)}\n")
             log.write(f"CWD: {os.getcwd()}\n")
         
         progress = ProgressWindow(
@@ -96,7 +92,8 @@ class BaseWindow:
             title_color=self.title_color, accent_color=self.accent_color
         )
         result = progress.run()
-        with open("/tmp/gui-debug.log", "w") as log:
+        
+        with open("/tmp/gui-debug.log", "a") as log:
             log.write(f"Install result: {result}\n")
         
         if result.get("result") == "success":
