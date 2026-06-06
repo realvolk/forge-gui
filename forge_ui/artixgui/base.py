@@ -79,13 +79,12 @@ class BaseWindow:
     def run_installer(self):
         self.save_state()
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        install_script = os.path.join(base_dir, "install")
+        install_script = os.path.join(base_dir, "..", "install")
         
         with open("/tmp/gui-debug.log", "w") as log:
             log.write(f"Script: {install_script}\n")
             log.write(f"Exists: {os.path.exists(install_script)}\n")
             log.write(f"Executable: {os.access(install_script, os.X_OK)}\n")
-            log.write(f"CWD: {os.getcwd()}\n")
         
         progress = ProgressWindow(
             {"title": "Installing ArtixForge", "command": ["sudo", install_script, "--non-interactive"]},
