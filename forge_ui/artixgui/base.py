@@ -42,164 +42,164 @@ class BaseWindow:
         accent_light = self._lighten_hex(accent_hex)
 
         css = f"""
-        * {{
+        * {{{{
             font-family: "Cantarell", "DejaVu Sans", sans-serif;
             background-color: transparent;
-        }}
-        window {{
+        }}}}
+        window {{{{
             background-color: #1e1e1e;
-        }}
-        .title {{
+        }}}}
+        .title {{{{
             font-size: 24px;
             font-weight: bold;
             color: {title_hex};
             margin-bottom: 12px;
-        }}
-        button {{
+        }}}}
+        button {{{{
             border-radius: 8px;
             padding: 8px 18px;
             font-weight: bold;
             background: #2d2d2d;
             color: #eeeeee;
             border: 1px solid #3c3c3c;
-        }}
-        button:hover {{
+        }}}}
+        button:hover {{{{
             background: #3c3c3c;
             border-color: {accent_hex};
-        }}
-        button.suggested-action {{
+        }}}}
+        button.suggested-action {{{{
             background: {accent_hex};
             color: #1e1e1e;
             border: none;
-        }}
-        button.suggested-action:hover {{
+        }}}}
+        button.suggested-action:hover {{{{
             background: {accent_light};
-        }}
-        entry {{
+        }}}}
+        entry {{{{
             border-radius: 6px;
             padding: 8px 10px;
             background: #2d2d2d;
             color: #eeeeee;
             border: 1px solid #3c3c3c;
-        }}
-        entry:focus {{
+        }}}}
+        entry:focus {{{{
             border-color: {accent_hex};
-        }}
-        combobox {{
+        }}}}
+        combobox {{{{
             border-radius: 6px;
             background: #2d2d2d;
-        }}
-        combobox button {{
+        }}}}
+        combobox button {{{{
             border-radius: 6px;
             background: #2d2d2d;
             color: #eeeeee;
             padding: 6px 12px;
-        }}
-        combobox button:hover {{
+        }}}}
+        combobox button:hover {{{{
             background: #3c3c3c;
-        }}
-        menu {{
+        }}}}
+        menu {{{{
             background: #2d2d2d;
             border: 1px solid #3c3c3c;
-        }}
-        menuitem {{
+        }}}}
+        menuitem {{{{
             padding: 6px 12px;
             color: #eeeeee;
-        }}
-        menuitem:hover {{
+        }}}}
+        menuitem:hover {{{{
             background: {accent_hex};
             color: #1e1e1e;
-        }}
-        checkbutton {{
+        }}}}
+        checkbutton {{{{
             margin: 4px 0;
             color: #eeeeee;
-        }}
-        checkbutton check {{
+        }}}}
+        checkbutton check {{{{
             border-radius: 4px;
             background: #2d2d2d;
             border: 1px solid #3c3c3c;
             min-width: 16px;
             min-height: 16px;
-        }}
-        checkbutton check:checked {{
+        }}}}
+        checkbutton check:checked {{{{
             background: {accent_hex};
             border-color: {accent_hex};
-        }}
-        checkbutton:hover check {{
+        }}}}
+        checkbutton:hover check {{{{
             border-color: {accent_hex};
-        }}
-        notebook {{
+        }}}}
+        notebook {{{{
             background: #252525;
             border-radius: 8px;
             padding: 4px;
-        }}
-        notebook tab {{
+        }}}}
+        notebook tab {{{{
             background: #2d2d2d;
             border-radius: 6px 6px 0 0;
             padding: 8px 16px;
             margin-right: 2px;
             color: #bbbbbb;
-        }}
-        notebook tab:hover {{
+        }}}}
+        notebook tab:hover {{{{
             background: #3c3c3c;
-        }}
-        notebook tab:checked {{
+        }}}}
+        notebook tab:checked {{{{
             background: {accent_hex};
             color: #1e1e1e;
             font-weight: bold;
-        }}
-        notebook tab:checked:hover {{
+        }}}}
+        notebook tab:checked:hover {{{{
             background: {accent_light};
-        }}
-        scrolledwindow {{
+        }}}}
+        scrolledwindow {{{{
             border-radius: 6px;
             background: #1e1e1e;
-        }}
-        scrolledwindow .frame {{
+        }}}}
+        scrolledwindow .frame {{{{
             border: 1px solid #3c3c3c;
             border-radius: 6px;
-        }}
-        textview {{
+        }}}}
+        textview {{{{
             background: #1e1e1e;
             color: #d0d0d0;
             padding: 8px;
             font-family: "Monospace", "Source Code Pro", monospace;
             font-size: 12px;
-        }}
-        textview text {{
+        }}}}
+        textview text {{{{
             background: #1e1e1e;
             color: #d0d0d0;
-        }}
-        textview text:selected {{
+        }}}}
+        textview text:selected {{{{
             background: {accent_hex};
             color: #1e1e1e;
-        }}
-        progressbar {{
+        }}}}
+        progressbar {{{{
             min-height: 8px;
-        }}
-        progressbar trough {{
+        }}}}
+        progressbar trough {{{{
             background: #2d2d2d;
             border-radius: 4px;
             min-height: 8px;
-        }}
-        progressbar progress {{
+        }}}}
+        progressbar progress {{{{
             background: {accent_hex};
             border-radius: 4px;
-        }}
-        spinner {{
+        }}}}
+        spinner {{{{
             color: {accent_hex};
-        }}
-        frame {{
+        }}}}
+        frame {{{{
             border-radius: 8px;
             border: 1px solid #3c3c3c;
             background: #252525;
-        }}
-        separator {{
+        }}}}
+        separator {{{{
             background-color: #3c3c3c;
-        }}
-        box, grid, centerbox {{
+        }}}}
+        box, grid, centerbox {{{{
             background: transparent;
-        }}
+        }}}}
         """
 
         provider = Gtk.CssProvider()
