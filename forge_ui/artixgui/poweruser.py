@@ -538,6 +538,8 @@ package() {{
         # First collect from AutomaticWindow
         super().collect_state()
         self.state['MODE'] = 'power'
+        self.state['POWER_USER'] = "yes"
+        self.state['GUI_MODE'] = "yes"
 
         # Profile
         if hasattr(self, 'profile_combo'):

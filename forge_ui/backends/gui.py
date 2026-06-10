@@ -6,23 +6,7 @@ import re
 import gi
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib, Gdk, Pango
-
-
-def _color_to_hex(code):
-    """Convert 256-color code to approximate hex for GTK CSS."""
-    palette = {
-        212: "#c678dd",  # gentoo purple
-        34:  "#98c379",  # gentoo green
-        39:  "#61afef",  # artix blue
-        245: "#928374", # grey
-        250: "#a89984", # light grey
-        3:   "#d19a66", # amber
-        117: "#56b6c2", # baby blue
-        196: "#e06c75", # red
-        255: "#ffffff", # white
-        11:  "#e5c07b", # yellow
-    }
-    return palette.get(code, f"#{code}")
+from ..theme import get_global_css
 
 
 class BaseWindow:
@@ -45,10 +29,7 @@ class BaseWindow:
         self.window.connect("key-press-event", self._on_key)
         self.window.connect("destroy", self._on_destroy)
 
-        css = f"""
-        .title {{ font-size: 18px; font-weight: bold; color: {_color_to_hex(self._title_color)}; }}
-        .accent {{ color: {_color_to_hex(self._accent_color)}; }}
-        """
+        css = get_global_css(self._title_color, self._accent_color)
         provider = Gtk.CssProvider()
         provider.load_from_data(css.encode())
         Gtk.StyleContext.add_provider_for_screen(
@@ -104,13 +85,14 @@ class BaseWindow:
         Gtk.main()
         return {"result": self.result, "cancelled": self.cancelled}
 
+
 class MenuWindow(BaseWindow):
     def run(self):
         choices = self.data.get("choices", [])
         default = self.data.get("default", "")
         
-        item_height = 35  # pixels per row
-        window_height = min(len(choices) * item_height + 150, 600)  # cap at 600
+        item_height = 35
+        window_height = min(len(choices) * item_height + 150, 600)
         vbox = self._create_window(500, window_height)
         
         listbox = Gtk.ListBox()
@@ -142,6 +124,7 @@ class MenuWindow(BaseWindow):
         self.cancelled = True
         self._quit()
 
+
 class YesNoWindow(BaseWindow):
     def run(self):
         vbox = self._create_window(400, 200)
@@ -157,6 +140,7 @@ class YesNoWindow(BaseWindow):
     def _answer(self, val):
         self.result = val
         self._quit()
+
 
 class InputWindow(BaseWindow):
     def run(self):
@@ -188,6 +172,7 @@ class InputWindow(BaseWindow):
         self.cancelled = True
         self._quit()
 
+
 class PasswordWindow(InputWindow):
     def run(self):
         vbox = self._create_window(500, 200)
@@ -211,14 +196,14 @@ class PasswordWindow(InputWindow):
         Gtk.main()
         return {"result": self.result or "", "cancelled": self.cancelled}
 
+
 class ChecklistWindow(BaseWindow):
     def run(self):
         choices = self.data.get("choices", [])
         defaults = set(self.data.get("default", []))
         
-        # Calculate window height dynamically
-        item_height = 35  # pixels per row
-        window_height = min(len(choices) * item_height + 150, 600)  # cap at 600
+        item_height = 35
+        window_height = min(len(choices) * item_height + 150, 600)
         vbox = self._create_window(500, window_height)
         
         listbox = Gtk.ListBox()
@@ -250,6 +235,7 @@ class ChecklistWindow(BaseWindow):
         self.cancelled = True
         self._quit()
 
+
 class MsgWindow(BaseWindow):
     def run(self):
         vbox = self._create_window(400, 200)
@@ -259,6 +245,7 @@ class MsgWindow(BaseWindow):
         btn.connect("clicked", lambda b: self._quit())
         vbox.pack_start(btn, False, False, 10)
         return super().run()
+
 
 class SummaryWindow(BaseWindow):
     def run(self):
@@ -282,6 +269,7 @@ class SummaryWindow(BaseWindow):
         vbox.pack_start(scrolled, True, True, 0)
         return super().run()
 
+
 class ProgressWindow(BaseWindow):
     def _create_window(self, default_w=800, default_h=600):
         self.window = Gtk.Window(title=self.title_text or "forge-ui")
@@ -290,16 +278,7 @@ class ProgressWindow(BaseWindow):
         self.window.connect("key-press-event", self._on_key)
         self.window.connect("destroy", self._on_destroy)
 
-        css = f"""
-        .title {{ font-size: 18px; font-weight: bold; color: {_color_to_hex(self._title_color)}; }}
-        .accent {{ color: {_color_to_hex(self._accent_color)}; }}
-        .logview {{
-            color: {_color_to_hex(self._accent_color)};
-            background-color: #1a1a1a;
-            font-family: monospace;
-            padding: 8px;
-        }}
-        """
+        css = get_global_css(self._title_color, self._accent_color)
         provider = Gtk.CssProvider()
         provider.load_from_data(css.encode())
         Gtk.StyleContext.add_provider_for_screen(
@@ -342,7 +321,6 @@ class ProgressWindow(BaseWindow):
         self.log_view.set_hexpand(True)
         self.log_view.set_vexpand(True)
         
-        # Use a monospace font for logs
         font = Pango.FontDescription("monospace 10")
         self.log_view.modify_font(font)
         self.log_view.get_style_context().add_class("logview")
@@ -401,6 +379,7 @@ class ProgressWindow(BaseWindow):
         if self._proc and self._proc.poll() is None:
             self._proc.terminate()
         self._quit()
+
 
 class GuiBackend:
     def run(self, data, title_color=212, accent_color=34):

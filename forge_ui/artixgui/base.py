@@ -3,22 +3,8 @@ import os
 import subprocess
 from gi.repository import Gtk, Gdk
 from ..backends.gui import ProgressWindow
-from ..theme import get_colors
+from ..theme import get_colors, get_global_css
 
-def _color_to_hex(code):
-    palette = {
-        212: "#c678dd", 34:  "#98c379", 39:  "#61afef",
-        245: "#928374", 250: "#a89984", 3:   "#d19a66",
-        117: "#56b6c2", 196: "#e06c75", 255: "#ffffff", 11: "#e5c07b",
-    }
-    return palette.get(code, f"#{code}")
-
-def _lighten_hex(hex_color, factor=0.2):
-    hex_color = hex_color.lstrip('#')
-    r = min(255, int(int(hex_color[0:2], 16) + (255 - int(hex_color[0:2], 16)) * factor))
-    g = min(255, int(int(hex_color[2:4], 16) + (255 - int(hex_color[2:4], 16)) * factor))
-    b = min(255, int(int(hex_color[4:6], 16) + (255 - int(hex_color[4:6], 16)) * factor))
-    return f"#{r:02x}{g:02x}{b:02x}"
 
 class BaseWindow:
     def __init__(self, state_file, state, title="ArtixForge"):
@@ -44,171 +30,7 @@ class BaseWindow:
             self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1))
         
         # Global styling
-        title_hex = _color_to_hex(self.title_color)
-        accent_hex = _color_to_hex(self.accent_color)
-        accent_light = _lighten_hex(accent_hex)
-
-        css = f"""
-        * {{
-            font-family: "Cantarell", "DejaVu Sans", sans-serif;
-            background-color: transparent;
-        }}
-        window {{
-            background-color: #1e1e1e;
-        }}
-        .title {{
-            font-size: 24px;
-            font-weight: bold;
-            color: {title_hex};
-            margin-bottom: 12px;
-        }}
-        button {{
-            border-radius: 8px;
-            padding: 8px 18px;
-            font-weight: bold;
-            background: #2d2d2d;
-            color: #eeeeee;
-            border: 1px solid #3c3c3c;
-        }}
-        button:hover {{
-            background: #3c3c3c;
-            border-color: {accent_hex};
-        }}
-        button.suggested-action {{
-            background: {accent_hex};
-            color: #1e1e1e;
-            border: none;
-        }}
-        button.suggested-action:hover {{
-            background: {accent_light};
-        }}
-        entry {{
-            border-radius: 6px;
-            padding: 8px 10px;
-            background: #2d2d2d;
-            color: #eeeeee;
-            border: 1px solid #3c3c3c;
-        }}
-        entry:focus {{
-            border-color: {accent_hex};
-        }}
-        combobox {{
-            border-radius: 6px;
-            background: #2d2d2d;
-        }}
-        combobox button {{
-            border-radius: 6px;
-            background: #2d2d2d;
-            color: #eeeeee;
-            padding: 6px 12px;
-        }}
-        combobox button:hover {{
-            background: #3c3c3c;
-        }}
-        menu {{
-            background: #2d2d2d;
-            border: 1px solid #3c3c3c;
-        }}
-        menuitem {{
-            padding: 6px 12px;
-            color: #eeeeee;
-        }}
-        menuitem:hover {{
-            background: {accent_hex};
-            color: #1e1e1e;
-        }}
-        checkbutton {{
-            margin: 4px 0;
-            color: #eeeeee;
-        }}
-        checkbutton check {{
-            border-radius: 4px;
-            background: #2d2d2d;
-            border: 1px solid #3c3c3c;
-            min-width: 16px;
-            min-height: 16px;
-        }}
-        checkbutton check:checked {{
-            background: {accent_hex};
-            border-color: {accent_hex};
-        }}
-        checkbutton:hover check {{
-            border-color: {accent_hex};
-        }}
-        notebook {{
-            background: #252525;
-            border-radius: 8px;
-            padding: 4px;
-        }}
-        notebook tab {{
-            background: #2d2d2d;
-            border-radius: 6px 6px 0 0;
-            padding: 8px 16px;
-            margin-right: 2px;
-            color: #bbbbbb;
-        }}
-        notebook tab:hover {{
-            background: #3c3c3c;
-        }}
-        notebook tab:checked {{
-            background: {accent_hex};
-            color: #1e1e1e;
-            font-weight: bold;
-        }}
-        notebook tab:checked:hover {{
-            background: {accent_light};
-        }}
-        scrolledwindow {{
-            border-radius: 6px;
-            background: #1e1e1e;
-        }}
-        scrolledwindow .frame {{
-            border: 1px solid #3c3c3c;
-            border-radius: 6px;
-        }}
-        textview {{
-            background: #1e1e1e;
-            color: #d0d0d0;
-            padding: 8px;
-            font-family: "Monospace", "Source Code Pro", monospace;
-            font-size: 12px;
-        }}
-        textview text {{
-            background: #1e1e1e;
-            color: #d0d0d0;
-        }}
-        textview text:selected {{
-            background: {accent_hex};
-            color: #1e1e1e;
-        }}
-        progressbar {{
-            min-height: 8px;
-        }}
-        progressbar trough {{
-            background: #2d2d2d;
-            border-radius: 4px;
-            min-height: 8px;
-        }}
-        progressbar progress {{
-            background: {accent_hex};
-            border-radius: 4px;
-        }}
-        spinner {{
-            color: {accent_hex};
-        }}
-        frame {{
-            border-radius: 8px;
-            border: 1px solid #3c3c3c;
-            background: #252525;
-        }}
-        separator {{
-            background-color: #3c3c3c;
-        }}
-        box, grid, centerbox {{
-            background: transparent;
-        }}
-        """
-
+        css = get_global_css(self.title_color, self.accent_color)
         provider = Gtk.CssProvider()
         provider.load_from_data(css.encode())
         Gtk.StyleContext.add_provider_for_screen(
@@ -269,7 +91,6 @@ class BaseWindow:
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         install_script = os.path.join(base_dir, "..", "install")
         
-        # Hide the config window so user doesn't close it by accident
         self.window.hide()
         
         progress = ProgressWindow(
@@ -411,7 +232,6 @@ class CommonPages:
         self.fs_combo.add_attribute(renderer_text, "text", 0)
         box.pack_start(self.fs_combo, False, False, 0)
         
-        # BTRFS layout
         self.btrfs_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         btrfs_label = Gtk.Label(label="BTRFS Layout:", xalign=0)
         self.btrfs_box.pack_start(btrfs_label, False, False, 0)
@@ -428,7 +248,7 @@ class CommonPages:
         
         box.pack_start(self.btrfs_box, False, False, 0)
         self.btrfs_box.set_no_show_all(True)
-        self.btrfs_box.hide()  # was set_visible(False)
+        self.btrfs_box.hide()
         
         self.fs_combo.connect("changed", self.on_fs_changed)
         
@@ -439,7 +259,7 @@ class CommonPages:
         if iter:
             fs = combo.get_model()[iter][0]
             if fs == "btrfs":
-                self.btrfs_box.show()
+                self.btrfs_box.show_all()
             else:
                 self.btrfs_box.hide()
     
@@ -769,14 +589,18 @@ class CommonPages:
         self.poweruser_box.pack_start(scroll, True, True, 0)
         
         box.pack_start(self.poweruser_box, False, False, 0)
-        self.poweruser_box.set_visible(False)
+        self.poweruser_box.set_no_show_all(True)
+        self.poweruser_box.hide()
         
         self.poweruser_check.connect("toggled", self.on_poweruser_toggled)
         
         return box
     
     def on_poweruser_toggled(self, check):
-        self.poweruser_box.set_visible(check.get_active())
+        if check.get_active():
+            self.poweruser_box.show_all()
+        else:
+            self.poweruser_box.hide()
     
     def create_summary_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -921,7 +745,7 @@ class CommonPages:
         if hasattr(self, '_CommonPages__extras_notebook') and self._CommonPages__extras_notebook is not None:
             notebook = self._CommonPages__extras_notebook
             for i in range(notebook.get_n_pages()):
-                page_box = notebook.get_nth_page(i)  # Gtk.Box
+                page_box = notebook.get_nth_page(i)
                 for child in page_box.get_children():
                     if isinstance(child, Gtk.CheckButton):
                         if child.get_active():

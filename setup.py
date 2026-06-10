@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="forge-gui",
-    version="0.2.0",
+    version="0.3.0",
     description="GTK3 GUI frontend for ArtixForge and VFF",
     author="Volk",
     license="Volk Open License 1.0",

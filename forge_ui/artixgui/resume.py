@@ -25,3 +25,8 @@ class ResumeWindow(BaseWindow):
 
     def collect_state(self):
         self.state['MODE'] = 'resume'
+        self.state['GUI_MODE'] = 'yes'
+
+    def start_installation(self):
+        self.collect_state()
+        self.run_installer()
