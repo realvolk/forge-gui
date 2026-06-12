@@ -99,7 +99,7 @@ class ISOBuilderWindow(BaseWindow):
         de_label = Gtk.Label(label="Desktop environment (Live Desktop only):", xalign=0)
         box.pack_start(de_label, False, False, 5)
         self.de_combo = Gtk.ComboBoxText()
-        for de in ["kde", "xfce", "lxqt", "lxde", "hyprland", "sway", "niri", "i3wm", "dwm", "vxwm", "icewm", "mango", "none"]:
+        for de in ["kde", "sonicde", "xfce", "lxqt", "lxde", "hyprland", "sway", "niri", "i3wm", "dwm", "vxwm", "icewm", "mango", "none"]:
             self.de_combo.append_text(de)
         self.de_combo.set_active(0)
         box.pack_start(self.de_combo, False, False, 0)

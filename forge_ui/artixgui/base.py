@@ -342,7 +342,7 @@ class CommonPages:
         box.pack_start(label, False, False, 0)
         
         de_store = Gtk.ListStore(str)
-        for de in ["kde", "xfce4", "lxqt", "lxde", "hyprland", "sway", 
+        for de in ["kde", "sonicde", "xfce4", "lxqt", "lxde", "hyprland", "sway", 
                   "niri", "i3wm", "dwm", "vxwm", "icewm", "mango", "none"]:
             de_store.append([de])
         
@@ -356,7 +356,7 @@ class CommonPages:
         box.pack_start(dm_label, False, False, 5)
         
         dm_store = Gtk.ListStore(str)
-        for dm in ["none", "lightdm", "sddm"]:
+        for dm in ["none", "lightdm", "sddm", "soniclogin"]:
             dm_store.append([dm])
         
         self.dm_combo = Gtk.ComboBox.new_with_model(dm_store)
