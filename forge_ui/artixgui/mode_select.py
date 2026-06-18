@@ -44,7 +44,6 @@ def run_mode_selection(state_file):
     mode_combo.set_active(0)
     content.pack_start(mode_combo, False, False, 0)
 
-    dialog.show_all()
     response = dialog.run()
     if response != Gtk.ResponseType.OK:
         dialog.destroy()
