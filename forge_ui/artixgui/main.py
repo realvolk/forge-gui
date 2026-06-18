@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import gi
 gi.require_version('Gtk', '3.0')
+gi.require_version('Gdk', '3.0')
 import os
 import sys
 from gi.repository import Gtk

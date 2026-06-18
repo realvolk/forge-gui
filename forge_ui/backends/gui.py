@@ -1,9 +1,12 @@
+import gi
+gi.require_version('Gtk', '3.0')
+gi.require_version('Gdk', '3.0')
+
 import json
 import sys
 import subprocess
 import threading
 import re
-import gi
 from gi.repository import Gtk, GLib, Gdk, Pango
 from ..theme import get_global_css
 
