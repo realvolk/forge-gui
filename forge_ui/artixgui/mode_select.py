@@ -50,10 +50,13 @@ def run_mode_selection(state_file):
         sys.exit(0)
 
     chosen = mode_combo.get_active_text()
+    print(f"DEBUG: mode_combo returned: '{chosen}'", file=sys.stderr)
     dialog.destroy()
 
+    if chosen is None:
+        chosen = "Automatic Installation"
+    
     state = {}
-    window = None
     if chosen == "Automatic Installation":
         window = AutomaticWindow(state_file, state)
     elif chosen == "Manual Installation":
