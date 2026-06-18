@@ -12,9 +12,13 @@ from .migration import MigrationWindow
 from .resume import ResumeWindow
 
 def run_mode_selection(state_file):
-    import sys
-    print("DEBUG: run_mode_selection called", file=sys.stderr)
+    parent = Gtk.Window()
+    parent.set_decorated(False)
+    parent.set_skip_taskbar_hint(True)
+    parent.show()
+    
     dialog = Gtk.Dialog(title="Select Installation Mode",
+                        parent=parent,
                         flags=Gtk.DialogFlags.MODAL)
     dialog.set_default_size(450, 250)
     dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
@@ -47,15 +51,15 @@ def run_mode_selection(state_file):
     response = dialog.run()
     if response != Gtk.ResponseType.OK:
         dialog.destroy()
+        parent.destroy()
         sys.exit(0)
 
-    chosen = mode_combo.get_active_text()
-    print(f"DEBUG: mode_combo returned: '{chosen}'", file=sys.stderr)
-    dialog.destroy()
-
-    if chosen is None:
-        chosen = "Automatic Installation"
+    idx = mode_combo.get_active()
+    chosen = modes[idx] if idx >= 0 and idx < len(modes) else "Automatic Installation"
     
+    dialog.destroy()
+    parent.destroy()
+
     state = {}
     if chosen == "Automatic Installation":
         window = AutomaticWindow(state_file, state)
