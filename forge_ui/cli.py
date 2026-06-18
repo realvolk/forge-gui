@@ -7,7 +7,6 @@ gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 
 import os
-import sys
 
 os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
 
@@ -26,9 +25,7 @@ for cachedir in pkg_dir.rglob('__pycache__'):
     except OSError:
         pass
 
-import sys
 import json
-import os
 import argparse
 from .theme import get_colors
 from .schema import validate
