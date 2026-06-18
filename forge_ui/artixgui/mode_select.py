@@ -12,6 +12,8 @@ from .migration import MigrationWindow
 from .resume import ResumeWindow
 
 def run_mode_selection(state_file):
+    import sys
+    print("DEBUG: run_mode_selection called", file=sys.stderr)
     dialog = Gtk.Dialog(title="Select Installation Mode",
                         flags=Gtk.DialogFlags.MODAL)
     dialog.set_default_size(450, 250)
