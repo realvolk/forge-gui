@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import gi
+gi.require_version('Gtk', '3.0')
 import sys
 from gi.repository import Gtk
 from .automatic import AutomaticWindow
