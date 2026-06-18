@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+import sys
+sys.path = [p for p in sys.path if p != '']
+
 import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
