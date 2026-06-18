@@ -76,13 +76,9 @@ class BaseWindow:
     def save_state(self):
         try:
             os.makedirs(os.path.dirname(self.state_file), exist_ok=True)
-            tmpfile = f"/tmp/artix-state-{os.getpid()}.tmp"
-            with open(tmpfile, 'w') as f:
+            with open(self.state_file, 'w') as f:
                 for key, value in self.state.items():
                     f.write(f'{key}="{value}"\n')
-            subprocess.run(['sudo', 'cp', tmpfile, self.state_file], check=True)
-            subprocess.run(['sudo', 'chown', 'root:root', self.state_file], check=True)
-            subprocess.run(['shred', '-u', tmpfile], check=True)
         except Exception as e:
             print(f"Error saving state: {e}")
     
@@ -223,7 +219,7 @@ class CommonPages:
         box.pack_start(label, False, False, 0)
         
         fs_store = Gtk.ListStore(str)
-        for fs in ["ext4", "btrfs", "xfs", "f2fs", "exfat", "zfs"]:
+        for fs in ["ext4", "btrfs", "xfs", "f2fs"]:
             fs_store.append([fs])
         
         self.fs_combo = Gtk.ComboBox.new_with_model(fs_store)
@@ -649,6 +645,32 @@ class CommonPages:
         self.summary_text.get_buffer().set_text(summary)
     
     def collect_state_common(self):
+        # Password confirmation check – block navigation if mismatched
+        if hasattr(self, 'user_pass_entry') and hasattr(self, 'user_confirm_entry'):
+            if self.user_pass_entry.get_text() != self.user_confirm_entry.get_text():
+                dialog = Gtk.MessageDialog(
+                    parent=self.window,
+                    flags=Gtk.DialogFlags.MODAL,
+                    type=Gtk.MessageType.WARNING,
+                    buttons=Gtk.ButtonsType.OK,
+                    message_format="User passwords do not match. Please correct them before continuing."
+                )
+                dialog.run()
+                dialog.destroy()
+                return False
+        if hasattr(self, 'root_pass_entry') and hasattr(self, 'root_confirm_entry'):
+            if self.root_pass_entry.get_text() != self.root_confirm_entry.get_text():
+                dialog = Gtk.MessageDialog(
+                    parent=self.window,
+                    flags=Gtk.DialogFlags.MODAL,
+                    type=Gtk.MessageType.WARNING,
+                    buttons=Gtk.ButtonsType.OK,
+                    message_format="Root passwords do not match. Please correct them before continuing."
+                )
+                dialog.run()
+                dialog.destroy()
+                return False
+
         # Theme
         if hasattr(self, 'theme_combo'):
             iter = self.theme_combo.get_active_iter()
@@ -814,3 +836,4 @@ class CommonPages:
                 self.state['POWERUSER_PACKAGES'] = " ".join(selected)
 
         self.state['GUI_MODE'] = "yes"
+        return True
