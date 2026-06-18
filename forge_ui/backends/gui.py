@@ -4,7 +4,6 @@ import subprocess
 import threading
 import re
 import gi
-gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk, GLib, Gdk, Pango
 from ..theme import get_global_css
 
