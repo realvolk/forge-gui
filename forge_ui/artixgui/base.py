@@ -762,21 +762,13 @@ class CommonPages:
             if iter:
                 self.state['USER_SHELL'] = self.shell_combo.get_model()[iter][0]
         
-        # Extras (NO STATE CORRUPTION EDITION)
+        # Extras
         extras = []
-        if hasattr(self, '_CommonPages__extras_notebook') and self._CommonPages__extras_notebook is not None:
-            notebook = self._CommonPages__extras_notebook
-            for i in range(notebook.get_n_pages()):
-                page_box = notebook.get_nth_page(i)
-                for child in page_box.get_children():
-                    if isinstance(child, Gtk.CheckButton):
-                        if child.get_active():
-                            extras.append(child.get_label())
-        elif hasattr(self, '_CommonPages__extras_checkboxes'):
+        if hasattr(self, '_CommonPages__extras_checkboxes'):
             cb_dict = self._CommonPages__extras_checkboxes
             if isinstance(cb_dict, dict):
                 for pkg, cb in cb_dict.items():
-                    if cb and hasattr(cb, 'get_active') and cb.get_active():
+                    if isinstance(cb, Gtk.CheckButton) and cb.get_active():
                         extras.append(pkg)
         self.state['EXTRAS'] = " ".join(extras)
 
