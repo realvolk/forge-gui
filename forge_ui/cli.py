@@ -46,6 +46,8 @@ def main():
                         help="Accent color (256-color code)")
     args = parser.parse_args()
 
+    print(f"DEBUG: args.mode = {args.mode}", file=sys.stderr)
+
     if args.mode == "config":
         state_file = "/tmp/artix-installer/state.conf"
         os.makedirs(os.path.dirname(state_file), exist_ok=True)
