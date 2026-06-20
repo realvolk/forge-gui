@@ -85,6 +85,21 @@ class BaseWindow:
         else:
             self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1.0))
 
+        if hasattr(self, '_CommonPages__extras_notebook') and self._CommonPages__extras_notebook:
+            nb = self._CommonPages__extras_notebook
+            if light:
+                nb.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 1))
+            else:
+                nb.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0.145, 0.145, 0.145, 1))
+            # Also fix each tab page
+            for i in range(nb.get_n_pages()):
+                child = nb.get_nth_page(i)
+                if child:
+                    if light:
+                        child.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 1))
+                    else:
+                        child.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0.145, 0.145, 0.145, 1))
+
     def on_bg_toggled(self, check):
         self.state["GUI_BACKGROUND"] = "white" if check.get_active() else "black"
         self._apply_theme()
@@ -500,12 +515,6 @@ class CommonPages:
                             break
             except Exception:
                 pass
-
-        if bg == "white":
-            nb_bg = Gdk.RGBA(1, 1, 1, 1)
-        else:
-            nb_bg = Gdk.RGBA(0.145, 0.145, 0.145, 1)  # #252525
-        notebook.override_background_color(Gtk.StateFlags.NORMAL, nb_bg)
 
         categories = {
             "System Tools": ["git", "flatpak", "fastfetch", "firewalld", "bluez", "zram-tools", "usb_modeswitch"],
