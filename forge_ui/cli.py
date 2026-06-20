@@ -33,6 +33,8 @@ from .backends.gui import GuiBackend
 
 
 def main():
+    sys.stderr.write("=== CLI.PY STARTED ===\n")
+    sys.stderr.flush()
     parser = argparse.ArgumentParser(description="GTK3 GUI frontend")
     parser.add_argument("--mode", choices=["auto", "gui", "config"], default="auto",
                         help="Display mode: config = persistent configuration window, gui = single widget, auto = gui if DISPLAY set")
