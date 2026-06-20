@@ -535,8 +535,6 @@ class CommonPages:
             page_box.set_margin_start(10)
             page_box.set_margin_top(10)
 
-            page_box.override_background_color(Gtk.StateFlags.NORMAL, nb_bg)
-
             for pkg in pkgs:
                 check = Gtk.CheckButton(label=pkg)
                 page_box.pack_start(check, False, False, 0)
