@@ -21,17 +21,8 @@ class BaseWindow:
         self.title_color = title_color
         self.accent_color = accent_color
 
-        screen = Gdk.Screen.get_default()
-        if screen:
-            monitor = screen.get_primary_monitor()
-            geometry = screen.get_monitor_workarea(monitor)
-            win_width = min(820, geometry.width - 40)
-            win_height = min(550, geometry.height - 120)
-        else:
-            win_height = 550
-
         self.window = Gtk.Window(title=title)
-        self.window.set_default_size(win_width, win_height)
+        self.window.set_default_size(680, 420)
         self.window.set_position(Gtk.WindowPosition.CENTER)
         self.window.connect("destroy", Gtk.main_quit)
 
