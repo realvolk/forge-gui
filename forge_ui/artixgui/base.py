@@ -20,9 +20,19 @@ class BaseWindow:
         self.accent_color = accent_color
         
         self.window = Gtk.Window(title=title)
-        self.window.set_default_size(700, 500)
+        self.window.set_default_size(820, 580)
         self.window.set_position(Gtk.WindowPosition.CENTER)
+        self.window.set_gravity(Gdk.Gravity.CENTER)
         self.window.connect("destroy", Gtk.main_quit)
+
+        screen = Gdk.Screen.get_default()
+        if screen:
+            monitor = screen.get_primary_monitor()
+            geometry = screen.get_monitor_workarea(monitor)
+            self.window.set_default_size(
+                min(820, geometry.width - 40),
+                min(580, geometry.height - 80)
+            )
         
         # Background colour
         bg = self.state.get("GUI_BACKGROUND", "black")

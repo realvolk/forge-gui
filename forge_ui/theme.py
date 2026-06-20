@@ -30,9 +30,11 @@ def _lighten_hex(hex_color, factor=0.2):
     return f"#{r:02x}{g:02x}{b:02x}"
 
 def get_global_css(title_color, accent_color):
+    """Return the full GTK3 CSS stylesheet as a string."""
     title_hex = _color_to_hex(title_color)
     accent_hex = _color_to_hex(accent_color)
     accent_light = _lighten_hex(accent_hex)
+
     return f"""
     * {{
         font-family: "Cantarell", "DejaVu Sans", sans-serif;
@@ -59,7 +61,6 @@ def get_global_css(title_color, accent_color):
         background: #2d2d2d;
         color: #f0f0f0;
         border: 1px solid #3c3c3c;
-        transition: all 0.2s ease;
     }}
     button:hover {{
         background: #3c3c3c;
@@ -69,7 +70,6 @@ def get_global_css(title_color, accent_color):
         background: {accent_hex};
         color: #1a1a1a;
         border: none;
-        font-weight: bold;
     }}
     button.suggested-action:hover {{
         background: {accent_light};
@@ -84,12 +84,10 @@ def get_global_css(title_color, accent_color):
     }}
     entry:focus {{
         border-color: {accent_hex};
-        box-shadow: 0 0 0 2px {accent_hex}44;
     }}
     combobox {{
         border-radius: 6px;
         background: #2d2d2d;
-        color: #f0f0f0;
     }}
     combobox button {{
         border-radius: 6px;
@@ -99,6 +97,14 @@ def get_global_css(title_color, accent_color):
     }}
     combobox button:hover {{
         background: #3c3c3c;
+    }}
+    combobox window {{
+        background-color: #2d2d2d;
+        color: #f0f0f0;
+    }}
+    combobox .combo {{
+        background-color: #2d2d2d;
+        color: #f0f0f0;
     }}
     menu {{
         background: #2d2d2d;
@@ -148,17 +154,29 @@ def get_global_css(title_color, accent_color):
         color: #1a1a1a;
         font-weight: bold;
     }}
+    notebook > stack > box {{
+        background: #252525;
+    }}
+    notebook > stack > box > box {{
+        background: #252525;
+    }}
     scrolledwindow {{
         border-radius: 6px;
-        background: #1e1e1e;
+        background: #1a1a1a;
         border: 1px solid #3c3c3c;
     }}
     textview {{
-        background: #1e1e1e;
-        color: #d0d0d0;
-        padding: 8px;
+        background: #1a1a1a;
+        color: #e8e8e8;
+        padding: 12px;
         font-family: "Monospace", "Source Code Pro", monospace;
-        font-size: 12px;
+        font-size: 13px;
+        border: 1px solid #3c3c3c;
+        border-radius: 6px;
+    }}
+    textview text {{
+        background: #1a1a1a;
+        color: #e8e8e8;
     }}
     textview text:selected {{
         background: {accent_hex};

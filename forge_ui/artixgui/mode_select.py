@@ -53,7 +53,7 @@ def run_mode_selection(state_file):
     for mode in modes:
         mode_combo.append_text(mode)
     mode_combo.set_active(0)
-    mode_combo.set_size_request(350, -1)
+    mode_combo.set_size_request(380, -1)
     content.pack_start(mode_combo, False, False, 0)
 
     response = dialog.run()
