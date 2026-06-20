@@ -8,7 +8,7 @@ from .base import BaseWindow, CommonPages
 class AutomaticWindow(BaseWindow, CommonPages):
     def __init__(self, state_file, state):
         super().__init__(state_file, state, title="Automatic Installation")
-        self.__init_common_pages()
+        self._init_common_pages()
         self.add_page("Welcome", self.create_welcome_page())
         self.add_page("Theme", self.create_theme_page())
         self.add_page("Disk & Partitioning", self.create_disk_page())

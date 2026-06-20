@@ -211,7 +211,7 @@ class BaseWindow:
 
 
 class CommonPages:
-    def __init_common_pages(self):
+    def _init_common_pages(self):
         self.__extras_notebook = None
         self.__extras_checkboxes = {}
         self._users_page = None
