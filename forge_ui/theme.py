@@ -41,6 +41,9 @@ def get_global_css(title_color, accent_color):
     window {{
         background-color: #1a1a1a;
     }}
+    label {
+        color: #e0e0e0;
+    }
     .title {{
         font-size: 24px;
         font-weight: bold;

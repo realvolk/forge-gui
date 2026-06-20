@@ -20,7 +20,7 @@ class BaseWindow:
         self.accent_color = accent_color
         
         self.window = Gtk.Window(title=title)
-        self.window.set_default_size(900, 700)
+        self.window.set_default_size(800, 600)
         self.window.set_position(Gtk.WindowPosition.CENTER)
         self.window.connect("destroy", Gtk.main_quit)
         
@@ -563,7 +563,7 @@ class CommonPages:
         
         self.arch_repos_check = Gtk.CheckButton(label="Enable Arch Linux repositories")
         box.pack_start(self.arch_repos_check, False, False, 5)
-        
+
         self.auris_check = Gtk.CheckButton(label="Enable AURIS (Artix User Repository of Init Scripts)")
         box.pack_start(self.auris_check, False, False, 5)
 
