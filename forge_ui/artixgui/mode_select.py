@@ -102,4 +102,10 @@ def run_mode_selection(state_file):
     else:
         raise ValueError(f"(MODESLECT.py) Unknown chosen variable: {chosen}")
 
-    window.run()
+    try:
+        window.run()
+    except Exception as e:
+        sys.stderr.write(f"Config window crashed: {e}\n")
+        import traceback
+        traceback.print_exc(file=sys.stderr)
+        sys.stderr.flush()
