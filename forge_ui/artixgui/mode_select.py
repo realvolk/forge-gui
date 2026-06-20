@@ -18,7 +18,7 @@ def run_mode_selection(state_file):
     win = Gtk.Window(title="Select Installation Mode")
     win.set_default_size(500, 380)
     win.set_position(Gtk.WindowPosition.CENTER)
-    win.connect("destroy", lambda w: sys.exit(0))
+    win.connect("destroy", Gtk.main_quit)
 
     vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
     vbox.set_border_width(20)
