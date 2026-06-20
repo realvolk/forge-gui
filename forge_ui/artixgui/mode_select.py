@@ -99,5 +99,7 @@ def run_mode_selection(state_file):
         window = MigrationWindow(state_file, state)
     elif chosen == "Resume Installation":
         window = ResumeWindow(state_file, state)
+    else:
+        raise ValueError(f"(MODESLECT.py) Unknown chosen variable: {chosen}")
 
     window.run()

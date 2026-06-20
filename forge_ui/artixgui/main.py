@@ -37,8 +37,8 @@ class ArtixForgeDispatcher:
         elif self.mode == "migrate":
             self.window = MigrationWindow(state_file, self.state)
         else:
-            self.window = AutomaticWindow(state_file, self.state)
-    
+            raise ValueError(f"(MAIN.py) Unknown installation mode: {self.mode}")
+
     def load_state(self):
         if os.path.exists(self.state_file):
             try:
@@ -56,5 +56,7 @@ class ArtixForgeDispatcher:
         self.window.run()
 
 def run_dispatcher(state_file):
+    import traceback
+    traceback.print_stack()
     dispatcher = ArtixForgeDispatcher(state_file)
     dispatcher.run()
