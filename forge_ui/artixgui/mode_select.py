@@ -25,7 +25,7 @@ def run_mode_selection(state_file):
     dialog = Gtk.Dialog(title="Select Installation Mode",
                         parent=None,
                         flags=Gtk.DialogFlags.MODAL)
-    dialog.set_default_size(450, 220)
+    dialog.set_default_size(500, 280)
     dialog.set_position(Gtk.WindowPosition.CENTER)
     dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
     dialog.add_button("Start", Gtk.ResponseType.OK)

@@ -20,7 +20,7 @@ class BaseWindow:
         self.accent_color = accent_color
         
         self.window = Gtk.Window(title=title)
-        self.window.set_default_size(800, 600)
+        self.window.set_default_size(700, 500)
         self.window.set_position(Gtk.WindowPosition.CENTER)
         self.window.connect("destroy", Gtk.main_quit)
         

@@ -36,7 +36,9 @@ def get_global_css(title_color, accent_color):
     return f"""
     * {{
         font-family: "Cantarell", "DejaVu Sans", sans-serif;
-        background-color: transparent;
+    }}
+    box, grid, centerbox {{
+        background: transparent;
     }}
     window {{
         background-color: #1a1a1a;
