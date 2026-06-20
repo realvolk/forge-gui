@@ -65,7 +65,8 @@ class BaseWindow:
             self.window.destroy()
 
     def _on_destroy(self, widget):
-        self.cancelled = True
+        if not getattr(self, '_finished', False):
+            self.cancelled = True
 
     def _quit(self):
         self.window.destroy()
@@ -376,6 +377,7 @@ class ProgressWindow(BaseWindow):
 
     def _done(self):
         self.spinner.stop()
+        self._finished = True
         self._quit()
 
     def _cancel(self):
