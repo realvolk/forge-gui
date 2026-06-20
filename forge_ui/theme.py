@@ -39,9 +39,6 @@ def get_global_css(title_color, accent_color):
     * {{
         font-family: "Cantarell", "DejaVu Sans", sans-serif;
     }}
-    box, grid, centerbox {{
-        background: transparent;
-    }}
     window {{
         background-color: #1a1a1a;
     }}
@@ -98,13 +95,23 @@ def get_global_css(title_color, accent_color):
     combobox button:hover {{
         background: #3c3c3c;
     }}
-    combobox window {{
+    combobox > window {{
         background-color: #2d2d2d;
+    }}
+    combobox > window > box > * {{
+        background-color: #2d2d2d;
+    }}
+    combobox > window > box > *:hover {{
+        background-color: #3c3c3c;
+    }}
+    combobox > window > box > *:selected {{
+        background-color: #2d2d2d;
+    }}
+    combobox > window > box > * > label {{
         color: #f0f0f0;
     }}
-    combobox .combo {{
-        background-color: #2d2d2d;
-        color: #f0f0f0;
+    combobox > window > box > *:hover > label {{
+        color: #ffffff;
     }}
     menu {{
         background: #2d2d2d;
@@ -154,29 +161,23 @@ def get_global_css(title_color, accent_color):
         color: #1a1a1a;
         font-weight: bold;
     }}
-    notebook viewport {{
-        background: #252525;
-    }}
-    notebook scrolledwindow {{
-        background: #252525;
-        border: none;
-    }}
-    notebook > stack > box {{
-        background: #252525;
-    }}
-    notebook > stack > box > box {{
-        background: #252525;
-    }}
-    box > notebook {{
-        background: #252525;
-    }}
-    box > notebook > stack > box {{
-        background: #252525;
+    notebook > stack > box,
+    notebook > stack > box > box,
+    notebook > stack > box > scrolledwindow,
+    notebook > stack > box > scrolledwindow > viewport,
+    notebook > stack > box > scrolledwindow > viewport > box,
+    notebook > stack > box > box > scrolledwindow,
+    notebook > stack > box > box > scrolledwindow > viewport,
+    notebook > stack > box > box > scrolledwindow > viewport > box {{
+        background-color: #252525;
     }}
     scrolledwindow {{
         border-radius: 6px;
         background: #1a1a1a;
         border: 1px solid #3c3c3c;
+    }}
+    scrolledwindow > viewport {{
+        background: #252525;
     }}
     textview {{
         background: #1a1a1a;

@@ -22,11 +22,20 @@ def run_mode_selection(state_file):
     dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
     dialog.add_button("Start", Gtk.ResponseType.OK)
 
+    css = get_global_css(212, 34)
+    provider = Gtk.CssProvider()
+    provider.load_from_data(css.encode())
+    Gtk.StyleContext.add_provider_for_screen(
+        dialog.get_screen(), provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    )
+
     content = dialog.get_content_area()
     content.set_spacing(10)
     content.set_margin_top(20)
     content.set_margin_start(20)
     content.set_margin_end(20)
+    content.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1))
 
     label = Gtk.Label()
     label.set_markup('<span size="large" weight="bold">Choose installation mode:</span>')
@@ -47,8 +56,7 @@ def run_mode_selection(state_file):
 
     mode_combo = Gtk.ComboBox.new_with_model(mode_store)
     renderer = Gtk.CellRendererText()
-    renderer.set_property("foreground", "#000000")
-    renderer.set_property("background", "#ffffff")
+    renderer.set_property("foreground", "#f0f0f0")
     mode_combo.pack_start(renderer, True)
     mode_combo.add_attribute(renderer, "text", 0)
     mode_combo.set_active(0)
