@@ -138,12 +138,19 @@ class BaseWindow:
                 message_format="Installation completed successfully!"
             )
         else:
+            log_tail = ""
+            try:
+                with open("/tmp/artix-installer/install.log", "r") as f:
+                    lines = f.readlines()
+                    log_tail = "".join(lines[-8:]) if lines else "(empty log)"
+            except Exception:
+                log_tail = "(could not read log)"
             dialog = Gtk.MessageDialog(
                 parent=None,
                 flags=Gtk.DialogFlags.MODAL,
                 type=Gtk.MessageType.ERROR,
                 buttons=Gtk.ButtonsType.OK,
-                message_format="Installation failed. Check logs for details."
+                message_format=f"Installation failed.\n\nLast log lines:\n{log_tail}"
             )
         dialog.run()
         dialog.destroy()
