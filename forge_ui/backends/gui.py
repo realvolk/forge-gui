@@ -126,17 +126,6 @@ class MenuWindow(BaseWindow):
         self.cancelled = True
         if self._proc and self._proc.poll() is None:
             self._proc.terminate()
-        state_file = "/tmp/artix-installer/state.conf"
-        if os.path.exists(state_file):
-            try:
-                with open(state_file, 'r') as f:
-                    lines = f.readlines()
-                with open(state_file, 'w') as f:
-                    for line in lines:
-                        if not line.startswith('DISK='):
-                            f.write(line)
-            except Exception:
-                pass
         self._quit()
 
 

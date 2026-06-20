@@ -5,7 +5,7 @@ import subprocess
 import os
 import json
 import urllib.request
-from gi.repository import Gtk
+from gi.repository import Gtk, Gdk
 from .automatic import AutomaticWindow
 
 # Community recipe repository
@@ -15,9 +15,11 @@ SECTION_CONFIG = "/etc/artix-poweruser/recipe-sections.conf"
 
 class PowerUserWindow(AutomaticWindow):
     def __init__(self, state_file, state):
-        # Store page indices for conditional visibility
         self._kernel_hardware_page_idx = None
         self._new_recipe_page_idx = None
+        self._coreutils_page_idx = None
+        self._kernel_config_page_idx = None
+        self._feature_flags_page_idx = None
 
         super().__init__(state_file, state)
         self.window.set_title("Power User Installation")
@@ -26,7 +28,6 @@ class PowerUserWindow(AutomaticWindow):
         self.fetch_recipe_list()
         self.feature_flags_per_package = {}
 
-        # Build and insert Power User pages after disk page (index 3)
         poweruser_page_specs = [
             ("Power User – Profile", self.create_profile_page),
             ("Power User – Recipe Sections", self.create_sections_page),
@@ -44,22 +45,25 @@ class PowerUserWindow(AutomaticWindow):
             self.add_page(title, page)
             self.pages.insert(insert_pos + i, self.pages.pop())
 
-        # Record the indices of conditional pages
         for i, page in enumerate(self.pages):
             title = self.stack.child_get_property(page, "name")
             if title == "Power User – Kernel Hardware":
                 self._kernel_hardware_page_idx = i
             elif title == "Power User – New Recipe":
                 self._new_recipe_page_idx = i
+            elif title == "Power User – Coreutils & Fallback":
+                self._coreutils_page_idx = i
+            elif title == "Power User – Kernel Config":
+                self._kernel_config_page_idx = i
+            elif title == "Power User – Feature Flags":
+                self._feature_flags_page_idx = i
 
-        # Connect signals
         if hasattr(self, 'coreutils_combo'):
             self.coreutils_combo.connect("changed", self._on_coreutils_changed)
 
         self.stack.set_visible_child(self.pages[0])
 
     def _set_page_visible(self, page_idx, visible):
-        """Show or hide a stack child by index."""
         if page_idx is None or page_idx >= len(self.pages):
             return
         page = self.pages[page_idx]
@@ -76,13 +80,17 @@ class PowerUserWindow(AutomaticWindow):
         self._update_conditional_pages()
 
     def _update_conditional_pages(self):
-        # Kernel Hardware: visible iff "linux" is checked
         linux_selected = False
         if hasattr(self, 'package_checkboxes') and "linux" in self.package_checkboxes:
             linux_selected = self.package_checkboxes["linux"].get_active()
-        self._set_page_visible(self._kernel_hardware_page_idx, linux_selected)
 
-        # New Recipe: visible iff coreutils is "custom"
+        self._set_page_visible(self._kernel_hardware_page_idx, linux_selected)
+        self._set_page_visible(self._kernel_config_page_idx, linux_selected)
+        self._set_page_visible(self._feature_flags_page_idx, linux_selected)
+
+        if hasattr(self, 'fallback_check'):
+            self.fallback_check.set_sensitive(linux_selected)
+
         custom_selected = False
         if hasattr(self, 'coreutils_combo'):
             custom_selected = (self.coreutils_combo.get_active_text() == "custom")
@@ -166,7 +174,6 @@ class PowerUserWindow(AutomaticWindow):
         dialog = Gtk.Dialog(title="Tweak Compilation Flags", parent=self.window, flags=Gtk.DialogFlags.MODAL)
         dialog.set_default_size(500, 300)
 
-        # Match parent window background
         light = (self.state.get("GUI_BACKGROUND", "black") == "white")
         if light:
             bg = Gdk.RGBA(0.96, 0.96, 0.96, 1.0)
@@ -623,7 +630,6 @@ package() {{
         self.state['POWER_USER'] = "yes"
         self.state['GUI_MODE'] = "yes"
 
-        # Profile
         if hasattr(self, 'profile_combo'):
             self.state['POWERUSER_PROFILE'] = self.profile_combo.get_active_text()
             if hasattr(self, 'custom_cflags'):
@@ -632,13 +638,11 @@ package() {{
                 self.state['ARTIX_LDFLAGS'] = self.custom_ldflags
                 self.state['ARTIX_MAKEFLAGS'] = self.custom_makeflags
 
-        # Recipe sections
         if hasattr(self, 'section_checkboxes'):
             sections = [sec for sec, cb in self.section_checkboxes.items() if cb.get_active()]
             self.recipe_sections = set(sections)
             self.save_sections()
 
-        # Packages
         selected_packages = []
         if hasattr(self, 'package_checkboxes'):
             for name, cb in self.package_checkboxes.items():
@@ -646,13 +650,11 @@ package() {{
                     selected_packages.append(name)
             self.state['POWERUSER_PACKAGES'] = " ".join(selected_packages)
 
-        # Coreutils & fallback
         if hasattr(self, 'coreutils_combo'):
             self.state['COREUTILS'] = self.coreutils_combo.get_active_text()
         if hasattr(self, 'fallback_check'):
             self.state['KEEP_BINARY_KERNEL'] = "yes" if self.fallback_check.get_active() else "no"
 
-        # Kernel config depth
         if hasattr(self, 'depth_combo'):
             depth_text = self.depth_combo.get_active_text()
             if depth_text.startswith("localmodconfig"):
@@ -664,7 +666,6 @@ package() {{
             elif depth_text.startswith("menuconfig"):
                 self.state['KERNEL_CONFIG_DEPTH'] = "menuconfig"
 
-        # Hardware checklists
         if hasattr(self, 'gpu_checkboxes'):
             gpu = [g for g, cb in self.gpu_checkboxes.items() if cb.get_active()]
             self.state['KERNEL_ADV_GPU'] = " ".join(gpu)
@@ -690,7 +691,6 @@ package() {{
             dbg = [d for d, cb in self.dbg_checkboxes.items() if cb.get_active()]
             self.state['KERNEL_ADV_DEBUG'] = " ".join(dbg)
 
-        # Preemption, timer, governor
         if hasattr(self, 'preempt_combo'):
             self.state['KERNEL_PREEMPT'] = self.preempt_combo.get_active_text()
         if hasattr(self, 'timer_combo'):

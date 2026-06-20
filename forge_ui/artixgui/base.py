@@ -76,13 +76,13 @@ class BaseWindow:
         else:
             self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1.0))
 
+        # Re-apply notebook background if it was already created
         if hasattr(self, '_CommonPages__extras_notebook') and self._CommonPages__extras_notebook:
             nb = self._CommonPages__extras_notebook
             if light:
                 nb.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 1))
             else:
                 nb.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0.145, 0.145, 0.145, 1))
-            # Also fix each tab page
             for i in range(nb.get_n_pages()):
                 child = nb.get_nth_page(i)
                 if child:
@@ -150,7 +150,6 @@ class BaseWindow:
         Gtk.main_quit()
 
     def _validate_passwords(self):
-        """Check password fields match. Returns True if valid, False if mismatch."""
         if hasattr(self, 'user_pass_entry') and hasattr(self, 'user_confirm_entry'):
             if self.user_pass_entry.get_text() != self.user_confirm_entry.get_text():
                 dialog = Gtk.MessageDialog(
@@ -185,7 +184,6 @@ class BaseWindow:
 
     def on_next(self, widget):
         if self.current_page < len(self.pages) - 1:
-            # Validate passwords before leaving the Users page
             if hasattr(self, 'user_pass_entry') and self.pages[self.current_page] is getattr(self, '_users_page', None):
                 if not self._validate_passwords():
                     return
@@ -205,7 +203,6 @@ class BaseWindow:
             self.next_btn.set_label("Next")
 
     def start_installation(self):
-        """Override in subclasses to collect state before installing."""
         self.run_installer()
 
     def run(self):
@@ -415,7 +412,6 @@ class CommonPages:
         self.de_combo.add_attribute(renderer_text, "text", 0)
         box.pack_start(self.de_combo, False, False, 0)
 
-        # Display stack
         xstack_label = Gtk.Label(label="Display stack:", xalign=0)
         box.pack_start(xstack_label, False, False, 5)
 
@@ -496,16 +492,8 @@ class CommonPages:
 
         notebook = Gtk.Notebook()
 
-        bg = "black"
-        if os.path.exists(self.state_file):
-            try:
-                with open(self.state_file) as f:
-                    for line in f:
-                        if line.startswith("GUI_BACKGROUND="):
-                            bg = line.split("=", 1)[1].strip().strip('"')
-                            break
-            except Exception:
-                pass
+        self.__extras_checkboxes = {}
+        self.__extras_notebook = notebook
 
         categories = {
             "System Tools": ["git", "flatpak", "fastfetch", "firewalld", "bluez", "zram-tools", "usb_modeswitch"],
@@ -515,11 +503,8 @@ class CommonPages:
             "Terminals": ["alacritty", "kitty", "foot"],
             "Shell & Prompt": ["fzf", "zoxide", "starship", "eza", "tmux"],
             "Monitoring": ["btop", "htop", "nvtop"],
-            "Media": ["mpv", "feh"]
+            "Media": ["mpv", "feh"],
         }
-
-        self.__extras_checkboxes = {}
-        self.__extras_notebook = notebook
 
         for cat_name, pkgs in categories.items():
             page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
@@ -536,6 +521,64 @@ class CommonPages:
             page_box.pack_start(select_all, False, False, 5)
 
             notebook.append_page(page_box, Gtk.Label(label=cat_name))
+
+        # Search tab
+        search_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        search_box.set_margin_start(10)
+        search_box.set_margin_top(10)
+
+        search_entry = Gtk.Entry()
+        search_entry.set_placeholder_text("Type to search packages...")
+        search_box.pack_start(search_entry, False, False, 0)
+
+        search_scroll = Gtk.ScrolledWindow()
+        search_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        search_scroll.set_min_content_height(200)
+        search_results_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        search_scroll.add(search_results_box)
+        search_box.pack_start(search_scroll, True, True, 0)
+
+        def on_search_changed(entry):
+            for child in search_results_box.get_children():
+                search_results_box.remove(child)
+            query = entry.get_text().strip()
+            if len(query) < 2:
+                search_results_box.show_all()
+                return
+            try:
+                result = subprocess.run(
+                    ["pacman", "-Sl", "world", "galaxy"],
+                    capture_output=True, text=True, timeout=15
+                )
+                pkg_set = set()
+                for line in result.stdout.strip().split('\n'):
+                    if line.strip():
+                        parts = line.split()
+                        if len(parts) >= 2:
+                            pkg_set.add(parts[1])
+                safe_filter = [
+                    "linux-", "systemd", "plasma-", "grub", "mkinitcpio",
+                    "-openrc", "-runit", "-dinit", "-s6", "sddm", "lightdm",
+                    "gdm", "xorg-", "xlibre-", "wayland", "hyprland", "sway",
+                    "niri", "pipewire", "pulseaudio", "networkmanager",
+                    "connman", "dhcpcd", "efibootmgr", "filesystem", "pacman",
+                    "bash", "coreutils", "util-linux"
+                ]
+                matches = sorted([
+                    p for p in pkg_set
+                    if query.lower() in p.lower()
+                    and not any(f in p.lower() for f in safe_filter)
+                ])[:50]
+                for pkg in matches:
+                    check = Gtk.CheckButton(label=pkg)
+                    search_results_box.pack_start(check, False, False, 0)
+                    self.__extras_checkboxes[pkg] = check
+            except Exception:
+                pass
+            search_results_box.show_all()
+
+        search_entry.connect("search-changed", on_search_changed)
+        notebook.append_page(search_box, Gtk.Label(label="Search"))
 
         box.pack_start(notebook, True, True, 0)
 
@@ -608,7 +651,6 @@ class CommonPages:
         self.root_confirm_entry.set_invisible_char("*")
         box.pack_start(self.root_confirm_entry, False, False, 0)
 
-        # Store reference so on_next can identify this page
         self._users_page = box
 
         return box
@@ -743,8 +785,6 @@ class CommonPages:
         self.summary_text.get_buffer().set_text(summary)
 
     def collect_state_common(self):
-        """Collect state from all common pages. Returns True on success, False if passwords mismatched."""
-
         if not self._validate_passwords():
             return False
 
@@ -753,103 +793,83 @@ class CommonPages:
             it = self.theme_combo.get_active_iter()
             if it:
                 theme = self.theme_combo.get_model()[it][0]
-                if theme == "Gentoo":
-                    self.state['GUM_TITLE_COLOR'] = "212"
-                    self.state['GUM_ACCENT_COLOR'] = "34"
-                elif theme == "Artix":
-                    self.state['GUM_TITLE_COLOR'] = "39"
-                    self.state['GUM_ACCENT_COLOR'] = "117"
-                elif theme == "Jet Black":
-                    self.state['GUM_TITLE_COLOR'] = "245"
-                    self.state['GUM_ACCENT_COLOR'] = "196"
-                elif theme == "Mono":
-                    self.state['GUM_TITLE_COLOR'] = "250"
-                    self.state['GUM_ACCENT_COLOR'] = "255"
-                elif theme == "Retro":
-                    self.state['GUM_TITLE_COLOR'] = "3"
-                    self.state['GUM_ACCENT_COLOR'] = "11"
+                colors = {
+                    "Gentoo": ("212", "34"),
+                    "Artix": ("39", "117"),
+                    "Jet Black": ("245", "196"),
+                    "Mono": ("250", "255"),
+                    "Retro": ("3", "11"),
+                }
+                tc, ac = colors.get(theme, ("212", "34"))
+                self.state['GUM_TITLE_COLOR'] = tc
+                self.state['GUM_ACCENT_COLOR'] = ac
 
-        # Background
         if hasattr(self, 'bg_check'):
             self.state['GUI_BACKGROUND'] = "white" if self.bg_check.get_active() else "black"
 
-        # Filesystem
         if hasattr(self, 'fs_combo'):
             it = self.fs_combo.get_active_iter()
             if it:
                 self.state['FS_TYPE'] = self.fs_combo.get_model()[it][0]
 
-        # BTRFS layout
         if hasattr(self, 'btrfs_combo') and self.state.get('FS_TYPE') == "btrfs":
             it = self.btrfs_combo.get_active_iter()
             if it:
                 self.state['BTRFS_LAYOUT'] = self.btrfs_combo.get_model()[it][0]
 
-        # Bootloader
         if hasattr(self, 'bl_combo'):
             it = self.bl_combo.get_active_iter()
             if it:
                 self.state['BOOTLOADER'] = self.bl_combo.get_model()[it][0]
 
-        # UKI
         if hasattr(self, 'uki_check'):
             self.state['GENERATE_UKI'] = "yes" if self.uki_check.get_active() else "no"
 
-        # Kernel
         if hasattr(self, 'kernel_combo'):
             it = self.kernel_combo.get_active_iter()
             if it:
                 self.state['KERNEL_CHOICE'] = self.kernel_combo.get_model()[it][0]
 
-        # Microcode
         if hasattr(self, 'microcode_combo'):
             it = self.microcode_combo.get_active_iter()
             if it:
                 self.state['MICROCODE_OVERRIDE'] = self.microcode_combo.get_model()[it][0]
 
-        # Init
         if hasattr(self, 'init_combo'):
             it = self.init_combo.get_active_iter()
             if it:
                 self.state['INIT'] = self.init_combo.get_model()[it][0]
 
-        # Desktop
         if hasattr(self, 'de_combo'):
             it = self.de_combo.get_active_iter()
             if it:
                 self.state['WM_DE'] = self.de_combo.get_model()[it][0]
 
-        # Display stack
         if hasattr(self, 'xstack_combo'):
             it = self.xstack_combo.get_active_iter()
             if it:
                 self.state['X_STACK'] = self.xstack_combo.get_model()[it][0]
 
-        # Display manager
         if hasattr(self, 'dm_combo'):
             it = self.dm_combo.get_active_iter()
             if it:
                 self.state['DISPLAY_MANAGER'] = self.dm_combo.get_model()[it][0]
 
-        # Network
         if hasattr(self, 'net_combo'):
             it = self.net_combo.get_active_iter()
             if it:
                 self.state['NETWORK_STACK'] = self.net_combo.get_model()[it][0]
 
-        # Audio
         if hasattr(self, 'audio_combo'):
             it = self.audio_combo.get_active_iter()
             if it:
                 self.state['AUDIO_STACK'] = self.audio_combo.get_model()[it][0]
 
-        # Shell
         if hasattr(self, 'shell_combo'):
             it = self.shell_combo.get_active_iter()
             if it:
                 self.state['USER_SHELL'] = self.shell_combo.get_model()[it][0]
 
-        # Extras
         extras = []
         if hasattr(self, '_CommonPages__extras_checkboxes'):
             cb_dict = self._CommonPages__extras_checkboxes
@@ -859,53 +879,41 @@ class CommonPages:
                         extras.append(pkg)
         self.state['EXTRAS'] = " ".join(extras)
 
-        # Hostname
         if hasattr(self, 'hostname_entry'):
             self.state['HOSTNAME'] = self.hostname_entry.get_text()
 
-        # Timezone
         if hasattr(self, 'timezone_entry'):
             self.state['TIMEZONE'] = self.timezone_entry.get_text()
 
-        # Locale
         if hasattr(self, 'locale_entry'):
             self.state['LOCALE'] = self.locale_entry.get_text()
 
-        # Keymap
         if hasattr(self, 'keymap_entry'):
             self.state['KEYMAP'] = self.keymap_entry.get_text()
 
-        # Username
         if hasattr(self, 'username_entry'):
             self.state['USER_NAME'] = self.username_entry.get_text()
 
-        # User password
         if hasattr(self, 'user_pass_entry'):
             self.state['USER_PASS'] = self.user_pass_entry.get_text()
 
-        # Root password
         if hasattr(self, 'root_pass_entry'):
             self.state['ROOT_PASS'] = self.root_pass_entry.get_text()
 
-        # Privilege escalation
         if hasattr(self, 'priv_combo'):
             it = self.priv_combo.get_active_iter()
             if it:
                 self.state['PRIV_ESCALATION'] = self.priv_combo.get_model()[it][0]
 
-        # Arch repos
         if hasattr(self, 'arch_repos_check'):
             self.state['ENABLE_ARCH_REPOS'] = "yes" if self.arch_repos_check.get_active() else "no"
 
-        # AURIS
         if hasattr(self, 'auris_check'):
             self.state['ENABLE_AURIS'] = "yes" if self.auris_check.get_active() else "no"
 
-        # Offline mode
         if hasattr(self, 'offline_check'):
             self.state['ALLOW_OFFLINE'] = "yes" if self.offline_check.get_active() else "no"
 
-        # Power User
         if hasattr(self, 'poweruser_check'):
             self.state['POWER_USER'] = "yes" if self.poweruser_check.get_active() else "no"
             if hasattr(self, 'coreutils_combo') and self.poweruser_check.get_active():
