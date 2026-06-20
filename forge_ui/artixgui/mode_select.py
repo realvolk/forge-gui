@@ -105,9 +105,9 @@ def run_mode_selection(state_file):
             with open(state_file, 'r') as f:
                 for line in f:
                     line = line.strip()
-                    if '=' in line:
+                    if '=' in line and not line.startswith('#'):
                         key, value = line.split('=', 1)
-                        state[key] = value.strip('"')
+                        state[key] = value.strip('"').replace('\\"', '"')
         window = ResumeWindow(state_file, state)
     else:
         raise ValueError(f"(MODESLECT.py) Unknown chosen variable: {chosen}")
