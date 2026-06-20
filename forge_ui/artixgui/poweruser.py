@@ -15,6 +15,11 @@ SECTION_CONFIG = "/etc/artix-poweruser/recipe-sections.conf"
 
 class PowerUserWindow(AutomaticWindow):
     def __init__(self, state_file, state):
+        # Store page references for conditional visibility
+        self.kernel_hardware_page = None
+        self.custom_recipe_page = None
+        self.feature_flags_page = None
+
         super().__init__(state_file, state)
         self.window.set_title("Power User Installation")
         self.recipe_sections = self.load_sections()
@@ -22,8 +27,7 @@ class PowerUserWindow(AutomaticWindow):
         self.fetch_recipe_list()
         self.feature_flags_per_package = {}  # name -> list of flags
 
-        # Insert Power User pages after disk page (index 2)
-        # Pages: 0 Welcome, 1 Theme, 2 Disk, then new ones
+        # Insert Power User pages after disk page (index 3, since 0 Welcome, 1 Theme, 2 Disk)
         poweruser_pages = [
             ("Power User – Profile", self.create_profile_page()),
             ("Power User – Recipe Sections", self.create_sections_page()),
@@ -34,11 +38,177 @@ class PowerUserWindow(AutomaticWindow):
             ("Power User – Feature Flags", self.create_feature_flags_page()),
             ("Power User – New Recipe", self.create_new_recipe_page()),
         ]
+        # Insert at position 3 (after Disk page)
         insert_pos = 3
         for title, page in reversed(poweruser_pages):
             self.add_page(title, page)
+            # Move the newly added last page to the insert position
             self.pages.insert(insert_pos, self.pages.pop())
+
+        # Store references to pages that need conditional visibility
+        self.kernel_hardware_page = self._find_page_by_title("Power User – Kernel Hardware")
+        self.custom_recipe_page = self._find_page_by_title("Power User – New Recipe")
+        self.feature_flags_page = self._find_page_by_title("Power User – Feature Flags")
+
+        # Connect signals for conditional visibility
+        if hasattr(self, 'coreutils_combo'):
+            self.coreutils_combo.connect("changed", self._on_coreutils_changed)
+
         self.stack.set_visible_child(self.pages[0])
+
+    def _find_page_by_title(self, title):
+        """Find a page widget by its title."""
+        for i, page in enumerate(self.pages):
+            pass
+        return None
+
+    def create_kernel_hardware_page(self):
+        """Create and return the kernel hardware page, storing a reference."""
+        page = self._create_kernel_hardware_page_impl()
+        self._kernel_hardware_page_ref = page
+        return page
+
+    def _create_kernel_hardware_page_impl(self):
+        notebook = Gtk.Notebook()
+        notebook.set_margin_top(10)
+
+        # GPU page
+        gpu_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        gpu_box.set_margin_start(10)
+        gpu_label = Gtk.Label(label="GPU Drivers", xalign=0)
+        gpu_label.set_markup('<b>GPU Drivers</b>')
+        gpu_box.pack_start(gpu_label, False, False, 0)
+        self.gpu_checkboxes = {}
+        for g in ["intel", "amd", "nvidia", "virtio", "vesa", "simpledrm"]:
+            cb = Gtk.CheckButton(label=g)
+            gpu_box.pack_start(cb, False, False, 0)
+            self.gpu_checkboxes[g] = cb
+        notebook.append_page(gpu_box, Gtk.Label(label="GPU"))
+
+        # Network page
+        net_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        net_box.set_margin_start(10)
+        net_label = Gtk.Label(label="Network Drivers", xalign=0)
+        net_label.set_markup('<b>Network Drivers</b>')
+        net_box.pack_start(net_label, False, False, 0)
+        self.net_checkboxes = {}
+        for n in ["intel", "realtek", "broadcom", "atheros", "virtio", "intel-wifi", "ath-wifi", "realtek-wifi", "bt"]:
+            cb = Gtk.CheckButton(label=n)
+            net_box.pack_start(cb, False, False, 0)
+            self.net_checkboxes[n] = cb
+        notebook.append_page(net_box, Gtk.Label(label="Network"))
+
+        # Filesystems page
+        fs_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        fs_box.set_margin_start(10)
+        fs_label = Gtk.Label(label="Filesystems", xalign=0)
+        fs_label.set_markup('<b>Filesystems</b>')
+        fs_box.pack_start(fs_label, False, False, 0)
+        self.fs_checkboxes = {}
+        for f in ["ext4", "btrfs", "xfs", "f2fs", "exfat", "ntfs", "overlay"]:
+            cb = Gtk.CheckButton(label=f)
+            fs_box.pack_start(cb, False, False, 0)
+            self.fs_checkboxes[f] = cb
+        notebook.append_page(fs_box, Gtk.Label(label="Filesystems"))
+
+        # Sound page
+        snd_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        snd_box.set_margin_start(10)
+        snd_label = Gtk.Label(label="Sound", xalign=0)
+        snd_label.set_markup('<b>Sound</b>')
+        snd_box.pack_start(snd_label, False, False, 0)
+        self.snd_checkboxes = {}
+        for s in ["intel-hda", "amd-hda", "usb-audio"]:
+            cb = Gtk.CheckButton(label=s)
+            snd_box.pack_start(cb, False, False, 0)
+            self.snd_checkboxes[s] = cb
+        notebook.append_page(snd_box, Gtk.Label(label="Sound"))
+
+        # USB page
+        usb_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        usb_box.set_margin_start(10)
+        usb_label = Gtk.Label(label="USB", xalign=0)
+        usb_label.set_markup('<b>USB</b>')
+        usb_box.pack_start(usb_label, False, False, 0)
+        self.usb_checkboxes = {}
+        for u in ["storage", "hid", "serial"]:
+            cb = Gtk.CheckButton(label=u)
+            usb_box.pack_start(cb, False, False, 0)
+            self.usb_checkboxes[u] = cb
+        notebook.append_page(usb_box, Gtk.Label(label="USB"))
+
+        # Security page
+        sec_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        sec_box.set_margin_start(10)
+        sec_label = Gtk.Label(label="Security", xalign=0)
+        sec_label.set_markup('<b>Security</b>')
+        sec_box.pack_start(sec_label, False, False, 0)
+        self.sec_checkboxes = {}
+        for s in ["selinux", "apparmor", "lockdown"]:
+            cb = Gtk.CheckButton(label=s)
+            sec_box.pack_start(cb, False, False, 0)
+            self.sec_checkboxes[s] = cb
+        notebook.append_page(sec_box, Gtk.Label(label="Security"))
+
+        # Virtualization page
+        virt_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        virt_box.set_margin_start(10)
+        virt_label = Gtk.Label(label="Virtualization", xalign=0)
+        virt_label.set_markup('<b>Virtualization</b>')
+        virt_box.pack_start(virt_label, False, False, 0)
+        self.virt_checkboxes = {}
+        for v in ["kvm", "vhost"]:
+            cb = Gtk.CheckButton(label=v)
+            virt_box.pack_start(cb, False, False, 0)
+            self.virt_checkboxes[v] = cb
+        notebook.append_page(virt_box, Gtk.Label(label="Virtualization"))
+
+        # Debugging page
+        dbg_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        dbg_box.set_margin_start(10)
+        dbg_label = Gtk.Label(label="Debugging", xalign=0)
+        dbg_label.set_markup('<b>Debugging &amp; Tracing</b>')
+        dbg_box.pack_start(dbg_label, False, False, 0)
+        self.dbg_checkboxes = {}
+        for d in ["ftrace", "perf", "kprobes", "ebpf"]:
+            cb = Gtk.CheckButton(label=d)
+            dbg_box.pack_start(cb, False, False, 0)
+            self.dbg_checkboxes[d] = cb
+        notebook.append_page(dbg_box, Gtk.Label(label="Debugging"))
+
+        # Preemption, timer, governor (simple dropdowns)
+        bottom_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        bottom_box.set_margin_top(10)
+
+        preempt_label = Gtk.Label(label="Preemption model:", xalign=0)
+        bottom_box.pack_start(preempt_label, False, False, 0)
+        self.preempt_combo = Gtk.ComboBoxText()
+        for p in ["voluntary", "full", "rt"]:
+            self.preempt_combo.append_text(p)
+        self.preempt_combo.set_active(0)
+        bottom_box.pack_start(self.preempt_combo, False, False, 0)
+
+        timer_label = Gtk.Label(label="Timer frequency (Hz):", xalign=0)
+        bottom_box.pack_start(timer_label, False, False, 0)
+        self.timer_combo = Gtk.ComboBoxText()
+        for t in ["100", "250", "300", "1000"]:
+            self.timer_combo.append_text(t)
+        self.timer_combo.set_active(1)  # 250
+        bottom_box.pack_start(self.timer_combo, False, False, 0)
+
+        gov_label = Gtk.Label(label="Default CPU governor:", xalign=0)
+        bottom_box.pack_start(gov_label, False, False, 0)
+        self.gov_combo = Gtk.ComboBoxText()
+        for g in ["schedutil", "ondemand", "performance"]:
+            self.gov_combo.append_text(g)
+        self.gov_combo.set_active(0)
+        bottom_box.pack_start(self.gov_combo, False, False, 0)
+
+        # Combine notebook and bottom_box in a vertical box
+        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        main_box.pack_start(notebook, True, True, 0)
+        main_box.pack_start(bottom_box, False, False, 0)
+        return main_box
 
     def load_sections(self):
         sections = {"OFFICIAL/Base", "OFFICIAL/Other", "COMMUNITY/Base", "COMMUNITY/Other"}
@@ -190,6 +360,7 @@ class PowerUserWindow(AutomaticWindow):
             check = Gtk.CheckButton(label=f"{name} [{section}] – {desc}")
             self.packages_container.pack_start(check, False, False, 0)
             self.package_checkboxes[name] = check
+            check.connect("toggled", self._on_package_toggled, name)
         scroll.add(self.packages_container)
         box.pack_start(scroll, True, True, 0)
 
@@ -197,6 +368,40 @@ class PowerUserWindow(AutomaticWindow):
         info_btn.connect("clicked", self.on_glibc_warning)
         box.pack_start(info_btn, False, False, 5)
         return box
+
+    def _on_package_toggled(self, check, pkg_name):
+        """Show/hide kernel hardware page based on linux package selection."""
+        if pkg_name == "linux":
+            self._update_conditional_pages()
+
+    def _on_coreutils_changed(self, combo):
+        """Show/hide custom recipe page based on coreutils selection."""
+        self._update_conditional_pages()
+
+    def _update_conditional_pages(self):
+        """Update visibility of pages that depend on other selections."""
+        # Kernel Hardware page: only visible when linux is selected in packages
+        linux_selected = False
+        if hasattr(self, 'package_checkboxes') and "linux" in self.package_checkboxes:
+            linux_selected = self.package_checkboxes["linux"].get_active()
+
+        if hasattr(self, '_kernel_hardware_page_ref') and self._kernel_hardware_page_ref:
+            # Find the page in the stack and show/hide
+            for i, page in enumerate(self.pages):
+                if page is self._kernel_hardware_page_ref:
+                    if linux_selected:
+                        page.show_all()
+                    else:
+                        page.hide()
+                    break
+
+        # Custom Recipe page: only visible when coreutils is "custom"
+        custom_selected = False
+        if hasattr(self, 'coreutils_combo'):
+            custom_selected = (self.coreutils_combo.get_active_text() == "custom")
+
+        if hasattr(self, 'create_new_recipe_page'):
+            pass
 
     def on_glibc_warning(self, widget):
         dialog = Gtk.MessageDialog(
@@ -261,148 +466,6 @@ class PowerUserWindow(AutomaticWindow):
         box.pack_start(self.depth_combo, False, False, 5)
         return box
 
-    def create_kernel_hardware_page(self):
-        notebook = Gtk.Notebook()
-        notebook.set_margin_top(10)
-
-        # GPU page
-        gpu_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        gpu_box.set_margin_start(10)
-        gpu_label = Gtk.Label(label="GPU Drivers", xalign=0)
-        gpu_label.set_markup('<b>GPU Drivers</b>')
-        gpu_box.pack_start(gpu_label, False, False, 0)
-        self.gpu_checkboxes = {}
-        for g in ["intel", "amd", "nvidia", "virtio", "vesa", "simpledrm"]:
-            cb = Gtk.CheckButton(label=g)
-            gpu_box.pack_start(cb, False, False, 0)
-            self.gpu_checkboxes[g] = cb
-        notebook.append_page(gpu_box, Gtk.Label(label="GPU"))
-
-        # Network page
-        net_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        net_box.set_margin_start(10)
-        net_label = Gtk.Label(label="Network Drivers", xalign=0)
-        net_label.set_markup('<b>Network Drivers</b>')
-        net_box.pack_start(net_label, False, False, 0)
-        self.net_checkboxes = {}
-        for n in ["intel", "realtek", "broadcom", "atheros", "virtio", "intel-wifi", "ath-wifi", "realtek-wifi", "bt"]:
-            cb = Gtk.CheckButton(label=n)
-            net_box.pack_start(cb, False, False, 0)
-            self.net_checkboxes[n] = cb
-        notebook.append_page(net_box, Gtk.Label(label="Network"))
-
-        # Filesystems page
-        fs_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        fs_box.set_margin_start(10)
-        fs_label = Gtk.Label(label="Filesystems", xalign=0)
-        fs_label.set_markup('<b>Filesystems</b>')
-        fs_box.pack_start(fs_label, False, False, 0)
-        self.fs_checkboxes = {}
-        for f in ["ext4", "btrfs", "xfs", "f2fs", "exfat", "ntfs", "overlay"]:
-            cb = Gtk.CheckButton(label=f)
-            fs_box.pack_start(cb, False, False, 0)
-            self.fs_checkboxes[f] = cb
-        notebook.append_page(fs_box, Gtk.Label(label="Filesystems"))
-
-        # Sound page
-        snd_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        snd_box.set_margin_start(10)
-        snd_label = Gtk.Label(label="Sound", xalign=0)
-        snd_label.set_markup('<b>Sound</b>')
-        snd_box.pack_start(snd_label, False, False, 0)
-        self.snd_checkboxes = {}
-        for s in ["intel-hda", "amd-hda", "usb-audio"]:
-            cb = Gtk.CheckButton(label=s)
-            snd_box.pack_start(cb, False, False, 0)
-            self.snd_checkboxes[s] = cb
-        notebook.append_page(snd_box, Gtk.Label(label="Sound"))
-
-        # USB page
-        usb_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        usb_box.set_margin_start(10)
-        usb_label = Gtk.Label(label="USB", xalign=0)
-        usb_label.set_markup('<b>USB</b>')
-        usb_box.pack_start(usb_label, False, False, 0)
-        self.usb_checkboxes = {}
-        for u in ["storage", "hid", "serial"]:
-            cb = Gtk.CheckButton(label=u)
-            usb_box.pack_start(cb, False, False, 0)
-            self.usb_checkboxes[u] = cb
-        notebook.append_page(usb_box, Gtk.Label(label="USB"))
-
-        # Security page
-        sec_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        sec_box.set_margin_start(10)
-        sec_label = Gtk.Label(label="Security", xalign=0)
-        sec_label.set_markup('<b>Security</b>')
-        sec_box.pack_start(sec_label, False, False, 0)
-        self.sec_checkboxes = {}
-        for s in ["selinux", "apparmor", "lockdown"]:
-            cb = Gtk.CheckButton(label=s)
-            sec_box.pack_start(cb, False, False, 0)
-            self.sec_checkboxes[s] = cb
-        notebook.append_page(sec_box, Gtk.Label(label="Security"))
-
-        # Virtualization page
-        virt_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        virt_box.set_margin_start(10)
-        virt_label = Gtk.Label(label="Virtualization", xalign=0)
-        virt_label.set_markup('<b>Virtualization</b>')
-        virt_box.pack_start(virt_label, False, False, 0)
-        self.virt_checkboxes = {}
-        for v in ["kvm", "vhost"]:
-            cb = Gtk.CheckButton(label=v)
-            virt_box.pack_start(cb, False, False, 0)
-            self.virt_checkboxes[v] = cb
-        notebook.append_page(virt_box, Gtk.Label(label="Virtualization"))
-
-        # Debugging page
-        dbg_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        dbg_box.set_margin_start(10)
-        dbg_label = Gtk.Label(label="Debugging", xalign=0)
-        dbg_label.set_markup('<b>Debugging &amp; Tracing</b>')
-        dbg_box.pack_start(dbg_label, False, False, 0)
-        self.dbg_checkboxes = {}
-        for d in ["ftrace", "perf", "kprobes", "ebpf"]:
-            cb = Gtk.CheckButton(label=d)
-            dbg_box.pack_start(cb, False, False, 0)
-            self.dbg_checkboxes[d] = cb
-        notebook.append_page(dbg_box, Gtk.Label(label="Debugging"))
-
-        # Preemption, timer, governor (simple dropdowns)
-        bottom_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
-        bottom_box.set_margin_top(10)
-
-        preempt_label = Gtk.Label(label="Preemption model:", xalign=0)
-        bottom_box.pack_start(preempt_label, False, False, 0)
-        self.preempt_combo = Gtk.ComboBoxText()
-        for p in ["voluntary", "full", "rt"]:
-            self.preempt_combo.append_text(p)
-        self.preempt_combo.set_active(0)
-        bottom_box.pack_start(self.preempt_combo, False, False, 0)
-
-        timer_label = Gtk.Label(label="Timer frequency (Hz):", xalign=0)
-        bottom_box.pack_start(timer_label, False, False, 0)
-        self.timer_combo = Gtk.ComboBoxText()
-        for t in ["100", "250", "300", "1000"]:
-            self.timer_combo.append_text(t)
-        self.timer_combo.set_active(1)  # 250
-        bottom_box.pack_start(self.timer_combo, False, False, 0)
-
-        gov_label = Gtk.Label(label="Default CPU governor:", xalign=0)
-        bottom_box.pack_start(gov_label, False, False, 0)
-        self.gov_combo = Gtk.ComboBoxText()
-        for g in ["schedutil", "ondemand", "performance"]:
-            self.gov_combo.append_text(g)
-        self.gov_combo.set_active(0)
-        bottom_box.pack_start(self.gov_combo, False, False, 0)
-
-        # Combine notebook and bottom_box in a vertical box
-        main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        main_box.pack_start(notebook, True, True, 0)
-        main_box.pack_start(bottom_box, False, False, 0)
-        return main_box
-
     def create_feature_flags_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         box.set_margin_top(20)
@@ -423,7 +486,10 @@ class PowerUserWindow(AutomaticWindow):
         scroll.add(self.flags_container)
         box.pack_start(scroll, True, True, 0)
 
-        # Fetch feature flags for all selected packages later (dynamic)
+        # Store reference for later dynamic population
+        self._feature_flags_scroll = scroll
+        self._feature_flags_container = self.flags_container
+
         return box
 
     def create_new_recipe_page(self):
@@ -474,6 +540,9 @@ class PowerUserWindow(AutomaticWindow):
         create_btn.connect("clicked", self.on_create_recipe)
         box.pack_start(create_btn, False, False, 10)
 
+        # Store reference for conditional visibility
+        self._new_recipe_page_ref = box
+
         return box
 
     def on_create_recipe(self, widget):
@@ -486,7 +555,6 @@ class PowerUserWindow(AutomaticWindow):
         desc = self.new_desc_entry.get_text().strip() or "Custom recipe"
         deps = self.new_deps_entry.get_text().strip()
 
-        # Create recipe file in POWERUSER_DIR/recipes/
         recipe_path = f"/usr/share/artix-poweruser/recipes/{name}.sh"
         try:
             with open(recipe_path, 'w') as f:
@@ -538,8 +606,24 @@ package() {{
         dialog.destroy()
 
     def collect_state(self):
-        # First collect from AutomaticWindow
-        super().collect_state()
+        # First collect from AutomaticWindow (which calls collect_state_common)
+        if not self.collect_state_common():
+            return
+
+        # AutomaticWindow's disk-specific fields
+        if hasattr(self, 'disk_combo'):
+            it = self.disk_combo.get_active_iter()
+            if it:
+                self.state['DISK'] = self.disk_combo.get_model()[it][0]
+        if hasattr(self, 'swap_check'):
+            self.state['SWAP_ENABLED'] = "yes" if self.swap_check.get_active() else "no"
+        if hasattr(self, 'luks_check'):
+            self.state['USE_LUKS'] = "yes" if self.luks_check.get_active() else "no"
+            if hasattr(self, 'luks_pass_entry') and self.luks_check.get_active():
+                self.state['LUKS_PASS'] = self.luks_pass_entry.get_text()
+        if hasattr(self, 'lvm_check'):
+            self.state['USE_LVM'] = "yes" if self.lvm_check.get_active() else "no"
+
         self.state['MODE'] = 'power'
         self.state['POWER_USER'] = "yes"
         self.state['GUI_MODE'] = "yes"
@@ -619,7 +703,12 @@ package() {{
         if hasattr(self, 'gov_combo'):
             self.state['KERNEL_GOVERNOR'] = self.gov_combo.get_active_text()
 
-        # Feature flags (would need to be populated based on selected packages)
-        # For simplicity, skipomg dynamic feature flags in this version, but the page exists.
-
         self.state['POWER_USER'] = "yes"
+
+    def start_installation(self):
+        """Override to collect state and validate before launching installer."""
+        self.collect_state()
+        if not self._validate_passwords():
+            return
+        self.save_state()
+        self.run_installer()

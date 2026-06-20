@@ -160,6 +160,14 @@ class ISOBuilderWindow(BaseWindow):
         self.offline_check = Gtk.CheckButton(label="Include all packages for offline installation (larger ISO)")
         self.offline_check.set_active(False)
         box.pack_start(self.offline_check, False, False, 10)
+
+        # Output directory entry
+        output_label = Gtk.Label(label="Output directory:", xalign=0)
+        box.pack_start(output_label, False, False, 5)
+        self.output_entry = Gtk.Entry()
+        self.output_entry.set_text(os.path.expanduser("~/ArtixForge-ISO"))
+        box.pack_start(self.output_entry, False, False, 0)
+
         return box
 
     def collect_state(self):
@@ -192,6 +200,12 @@ class ISOBuilderWindow(BaseWindow):
         self.state['ISO_BOOT_MODE'] = self.boot_mode
         self.state['MODE'] = 'iso'
         self.state['GUI_MODE'] = 'yes'
+        self.state['ALLOW_OFFLINE'] = self.offline
+
+        if hasattr(self, 'output_entry'):
+            self.state['ISO_OUTPUT_DIR'] = self.output_entry.get_text()
+        else:
+            self.state['ISO_OUTPUT_DIR'] = os.path.expanduser("~/ArtixForge-ISO")
 
     def start_installation(self):
         self.collect_state()
@@ -214,7 +228,7 @@ class ISOBuilderWindow(BaseWindow):
         elif result.get("result") == "success":
             dialog = Gtk.MessageDialog(parent=None, flags=Gtk.DialogFlags.MODAL,
                                        type=Gtk.MessageType.INFO, buttons=Gtk.ButtonsType.OK,
-                                       message_format="ISO built successfully!\n\nCheck ~/artixforge-iso/")
+                                       message_format="ISO built successfully!\n\nCheck ~/ArtixForge-ISO/")
         else:
             dialog = Gtk.MessageDialog(parent=None, flags=Gtk.DialogFlags.MODAL,
                                        type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.OK,

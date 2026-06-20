@@ -10,11 +10,10 @@ class ManualWindow(AutomaticWindow):
         super().__init__(state_file, state)
         self.window.set_title("Manual Installation")
         # Replace the disk page (page index 2) with manual version
-        # Since pages are added in order, the disk page is at index 2 (0: Welcome, 1: Theme, 2: Disk)
         self.stack.remove(self.pages[2])
         self.pages[2] = self.create_manual_disk_page()
         self.stack.add_titled(self.pages[2], "Manual Disk", "Manual Disk")
-        self.stack.set_visible_child(self.pages[0])  # reset to first page
+        self.stack.set_visible_child(self.pages[0])
     
     def create_manual_disk_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -24,13 +23,19 @@ class ManualWindow(AutomaticWindow):
         box.pack_start(label, False, False, 0)
         
         desc = Gtk.Label()
-        desc.set_text("You will partition the disk yourself using tools like cfdisk or fdisk.\n\nAfter partitioning, the installer will continue automatically.\n\nSelect the disk you want to partition:")
+        desc.set_text(
+            "You will partition the disk yourself using tools like cfdisk or fdisk.\n\n"
+            "After partitioning, the installer will continue automatically.\n\n"
+            "Select the disk you want to partition:"
+        )
         desc.set_justify(Gtk.Justification.CENTER)
         box.pack_start(desc, False, False, 10)
         
         disk_store = Gtk.ListStore(str, str)
-        result = subprocess.run(['lsblk', '-dpno', 'NAME,SIZE,MODEL', '-e', '7'], 
-                               capture_output=True, text=True)
+        result = subprocess.run(
+            ['lsblk', '-dpno', 'NAME,SIZE,MODEL', '-e', '7'],
+            capture_output=True, text=True
+        )
         for line in result.stdout.strip().split('\n'):
             if line.strip():
                 parts = line.split(' ', 1)
@@ -45,16 +50,28 @@ class ManualWindow(AutomaticWindow):
         box.pack_start(self.disk_combo, False, False, 0)
         
         reminder = Gtk.Label()
-        reminder.set_text("\nReminder: If you want swap, LUKS encryption, or LVM,\nyou must set them up manually before continuing.")
+        reminder.set_text(
+            "\nReminder: If you want swap, LUKS encryption, or LVM,\n"
+            "you must set them up manually before continuing."
+        )
         reminder.set_justify(Gtk.Justification.CENTER)
         box.pack_start(reminder, False, False, 10)
         
         return box
     
     def collect_state(self):
-        super().collect_state()
+        # Collect all common fields from AutomaticWindow (which calls collect_state_common)
+        if not self.collect_state_common():
+            return
         self.state['MODE'] = 'manual'
-        # Automatic-specific fields that manual mode doesn't use
+        
+        # Disk selection
+        if hasattr(self, 'disk_combo'):
+            it = self.disk_combo.get_active_iter()
+            if it:
+                self.state['DISK'] = self.disk_combo.get_model()[it][0]
+        
+        # Manual mode doesn't use these — clear them so they don't leak from state
         self.state.pop('SWAP_ENABLED', None)
         self.state.pop('USE_LUKS', None)
         self.state.pop('LUKS_PASS', None)

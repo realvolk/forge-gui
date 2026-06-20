@@ -19,7 +19,10 @@ class ResumeWindow(BaseWindow):
         box.pack_start(label, False, False, 0)
         
         desc = Gtk.Label()
-        desc.set_text("A saved installation state was found.\n\nClick Install to continue from where it stopped.")
+        desc.set_text(
+            "A saved installation state was found.\n\n"
+            "Click Install to continue from where it stopped."
+        )
         desc.set_justify(Gtk.Justification.CENTER)
         box.pack_start(desc, False, False, 10)
         
@@ -31,4 +34,5 @@ class ResumeWindow(BaseWindow):
 
     def start_installation(self):
         self.collect_state()
+        self.save_state()
         self.run_installer()
