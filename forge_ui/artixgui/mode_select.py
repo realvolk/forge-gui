@@ -84,21 +84,6 @@ def run_mode_selection(state_file):
 
     chosen = chosen_mode[0]
     
-    mode_map = {
-        "Automatic Installation": "auto",
-        "Manual Installation": "manual",
-        "Power User Installation": "power",
-        "System Recovery": "recovery",
-        "Build ISO": "iso",
-        "System Migration": "migrate",
-        "Resume Installation": "resume",
-    }
-    mode = mode_map.get(chosen, "auto")
-    os.makedirs(os.path.dirname(state_file), exist_ok=True)
-    with open(state_file, 'w') as f:
-        f.write(f'MODE="{mode}"\n')
-        f.write(f'GUI_MODE="yes"\n')
-    
     state = {}
     if chosen == "Automatic Installation":
         window = AutomaticWindow(state_file, state)
