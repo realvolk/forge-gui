@@ -370,10 +370,7 @@ class ProgressWindow(BaseWindow):
         GLib.idle_add(self._done)
 
     def _append_log(self, line):
-        clean = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', line)
-        clean = re.sub(r'\x1b\]0;.*?\x07', '', clean)  # OSC terminal title sequences
-        clean = re.sub(r'\x1b\[[0-9;]*m', '', clean)     # redundant but safe
-        clean = re.sub(r'\x1b\[[0-9;]*[Kk]', '', clean)  # erase line sequences
+        clean = ''.join(c for c in line if 32 <= ord(c) <= 126 or c in '\n\r\t')
         buf = self.log_view.get_buffer()
         buf.insert(buf.get_end_iter(), clean)
         self.log_view.scroll_to_iter(buf.get_end_iter(), 0.0, False, 0.0, 0.0)
