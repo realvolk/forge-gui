@@ -84,6 +84,9 @@ def run_mode_selection(state_file):
 
     chosen = chosen_mode[0]
     
+    print(f"DEBUG: Chosen mode: {chosen}", file=sys.stderr)
+    sys.stderr.flush()
+
     state = {}
     if chosen == "Automatic Installation":
         window = AutomaticWindow(state_file, state)
@@ -102,6 +105,7 @@ def run_mode_selection(state_file):
     else:
         raise ValueError(f"(MODESLECT.py) Unknown chosen variable: {chosen}")
 
+    start_btn.connect("clicked", on_start)
     print(f"DEBUG: About to open {chosen} window", file=sys.stderr)
     sys.stderr.flush()
     window.run()
