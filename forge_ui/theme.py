@@ -167,6 +167,12 @@ def get_global_css(title_color, accent_color):
     notebook > stack > box > box {{
         background: #252525;
     }}
+    box > notebook {{
+        background: #252525;
+    }}
+    box > notebook > stack > box {{
+        background: #252525;
+    }}
     scrolledwindow {{
         border-radius: 6px;
         background: #1a1a1a;

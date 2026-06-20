@@ -14,14 +14,6 @@ from .resume import ResumeWindow
 from ..theme import get_global_css
 
 def run_mode_selection(state_file):
-    css = get_global_css(title_color=212, accent_color=34)
-    provider = Gtk.CssProvider()
-    provider.load_from_data(css.encode())
-    Gtk.StyleContext.add_provider_for_screen(
-        Gdk.Screen.get_default(), provider,
-        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-    )
-
     dialog = Gtk.Dialog(title="Select Installation Mode",
                         parent=None,
                         flags=Gtk.DialogFlags.MODAL)
@@ -37,7 +29,7 @@ def run_mode_selection(state_file):
     content.set_margin_end(20)
 
     label = Gtk.Label()
-    label.set_markup('<span size="large" weight="bold" foreground="#e0e0e0">Choose installation mode:</span>')
+    label.set_markup('<span size="large" weight="bold">Choose installation mode:</span>')
     content.pack_start(label, False, False, 0)
 
     mode_store = Gtk.ListStore(str)
@@ -55,7 +47,8 @@ def run_mode_selection(state_file):
 
     mode_combo = Gtk.ComboBox.new_with_model(mode_store)
     renderer = Gtk.CellRendererText()
-    renderer.set_property("foreground", "#f0f0f0")
+    renderer.set_property("foreground", "#000000")
+    renderer.set_property("background", "#ffffff")
     mode_combo.pack_start(renderer, True)
     mode_combo.add_attribute(renderer, "text", 0)
     mode_combo.set_active(0)
