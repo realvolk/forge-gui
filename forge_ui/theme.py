@@ -154,6 +154,13 @@ def get_global_css(title_color, accent_color):
         color: #1a1a1a;
         font-weight: bold;
     }}
+    notebook viewport {{
+        background: #252525;
+    }}
+    notebook scrolledwindow {{
+        background: #252525;
+        border: none;
+    }}
     notebook > stack > box {{
         background: #252525;
     }}

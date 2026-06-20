@@ -40,7 +40,7 @@ def run_mode_selection(state_file):
     label.set_markup('<span size="large" weight="bold" foreground="#e0e0e0">Choose installation mode:</span>')
     content.pack_start(label, False, False, 0)
 
-    mode_combo = Gtk.ComboBoxText()
+    mode_store = Gtk.ListStore(str)
     modes = [
         "Automatic Installation",
         "Manual Installation",
@@ -51,7 +51,13 @@ def run_mode_selection(state_file):
         "Resume Installation"
     ]
     for mode in modes:
-        mode_combo.append_text(mode)
+        mode_store.append([mode])
+
+    mode_combo = Gtk.ComboBox.new_with_model(mode_store)
+    renderer = Gtk.CellRendererText()
+    renderer.set_property("foreground", "#f0f0f0")
+    mode_combo.pack_start(renderer, True)
+    mode_combo.add_attribute(renderer, "text", 0)
     mode_combo.set_active(0)
     mode_combo.set_size_request(380, -1)
     content.pack_start(mode_combo, False, False, 0)
