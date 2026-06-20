@@ -1,18 +1,17 @@
 import gi
-gi.require_version('Gtk', '3.0')
-gi.require_version('Gdk', '3.0')
+gi.require_version('Gtk', '4.0')
+gi.require_version('Adw', '1')
 
 import json
 import sys
 import subprocess
 import threading
 import re
-from gi.repository import Gtk, GLib, Gdk, Pango
-from ..theme import get_global_css
+from gi.repository import Gtk, GLib, Adw, Pango
 
 
 class BaseWindow:
-    """Shared setup: window creation, title, message, escape-to-cancel."""
+    """Shared setup for standalone widgets."""
 
     def __init__(self, data, title_color, accent_color):
         self.data = data
@@ -27,42 +26,40 @@ class BaseWindow:
     def _create_window(self, default_w=600, default_h=400):
         self.window = Gtk.Window(title=self.title_text or "forge-ui")
         self.window.set_default_size(default_w, default_h)
-        self.window.set_position(Gtk.WindowPosition.CENTER)
-        self.window.connect("key-press-event", self._on_key)
+        # No set_position in GTK4; will be centered by the compositor.
+        key_controller = Gtk.EventControllerKey.new()
+        key_controller.connect("key-pressed", self._on_key)
+        self.window.add_controller(key_controller)
         self.window.connect("destroy", self._on_destroy)
 
-        css = get_global_css(self._title_color, self._accent_color)
-        provider = Gtk.CssProvider()
-        provider.load_from_data(css.encode())
-        Gtk.StyleContext.add_provider_for_screen(
-            Gdk.Screen.get_default(), provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
-
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        vbox.set_border_width(20)
+        vbox.set_margin_top(20)
+        vbox.set_margin_bottom(20)
+        vbox.set_margin_start(20)
+        vbox.set_margin_end(20)
         vbox.set_valign(Gtk.Align.CENTER)
-        self.window.add(vbox)
+        self.window.set_child(vbox)
 
         if self.title_text:
             title_label = Gtk.Label(label=self.title_text)
-            title_label.get_style_context().add_class("title")
+            title_label.add_css_class("title-1")
             title_label.set_halign(Gtk.Align.CENTER)
-            vbox.pack_start(title_label, False, False, 0)
+            vbox.append(title_label)
 
         if self.message:
             msg_label = Gtk.Label(label=self.message)
             msg_label.set_halign(Gtk.Align.CENTER)
-            msg_label.set_line_wrap(True)
+            msg_label.set_wrap(True)
             msg_label.set_max_width_chars(60)
-            vbox.pack_start(msg_label, False, False, 10)
+            vbox.append(msg_label)
 
         return vbox
 
-    def _on_key(self, widget, event):
-        if event.keyval == Gdk.KEY_Escape:
+    def _on_key(self, controller, keyval, keycode, state):
+        if keyval == Gtk.KEY_Escape:
             self.cancelled = True
             self.window.destroy()
+        return False
 
     def _on_destroy(self, widget):
         if not getattr(self, '_finished', False):
@@ -70,6 +67,7 @@ class BaseWindow:
 
     def _quit(self):
         self.window.destroy()
+        # GTK4 main loop quits when last window is destroyed; we call Gtk.main_quit() for safety
         Gtk.main_quit()
 
     def _make_button_box(self, *buttons):
@@ -78,13 +76,13 @@ class BaseWindow:
         for label, cb, primary in buttons:
             btn = Gtk.Button(label=label)
             if primary:
-                btn.get_style_context().add_class("suggested-action")
+                btn.add_css_class("suggested-action")
             btn.connect("clicked", cb)
-            box.pack_start(btn, False, False, 0)
+            box.append(btn)
         return box
 
     def run(self):
-        self.window.show_all()
+        self.window.show()
         Gtk.main()
         return {"result": self.result, "cancelled": self.cancelled}
 
@@ -93,52 +91,45 @@ class MenuWindow(BaseWindow):
     def run(self):
         choices = self.data.get("choices", [])
         default = self.data.get("default", "")
-        
-        item_height = 35
-        window_height = min(len(choices) * item_height + 150, 600)
-        vbox = self._create_window(500, window_height)
-        
+
+        vbox = self._create_window(500, min(len(choices) * 35 + 150, 600))
+
         listbox = Gtk.ListBox()
         listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
-        
+        listbox.set_vexpand(True)
+
         for choice in choices:
             row = Gtk.ListBoxRow()
-            label = Gtk.Label(label=choice, xalign=0, margin=5)
-            row.add(label)
-            listbox.add(row)
+            label = Gtk.Label(label=choice, xalign=0, margin_top=5, margin_bottom=5)
+            row.set_child(label)
+            listbox.append(row)
             if choice == default:
                 listbox.select_row(row)
-        
+
         listbox.connect("row-activated", lambda lb, row: self._select(row))
-        vbox.pack_start(listbox, True, True, 0)
-        
-        vbox.pack_start(
-            self._make_button_box(("Cancel", lambda b: self._cancel(), False)),
-            False, False, 10
-        )
-        
+        vbox.append(listbox)
+
+        vbox.append(self._make_button_box(("Cancel", lambda b: self._cancel(), False)))
+
         return super().run()
-    
+
     def _select(self, row):
         self.result = row.get_child().get_text()
         self._quit()
-    
+
     def _cancel(self):
         self.cancelled = True
-        if self._proc and self._proc.poll() is None:
-            self._proc.terminate()
         self._quit()
 
 
 class YesNoWindow(BaseWindow):
     def run(self):
         vbox = self._create_window(400, 200)
-        vbox.pack_start(
+        vbox.append(
             self._make_button_box(
                 ("Yes", lambda b: self._answer(True), True),
                 ("No",  lambda b: self._answer(False), False),
-            ),
-            False, False, 20
+            )
         )
         return super().run()
 
@@ -155,16 +146,15 @@ class InputWindow(BaseWindow):
         if self.data.get("placeholder"):
             self.entry.set_placeholder_text(self.data["placeholder"])
         self.entry.connect("activate", lambda e: self._submit())
-        vbox.pack_start(self.entry, False, False, 10)
+        vbox.append(self.entry)
 
-        vbox.pack_start(
+        vbox.append(
             self._make_button_box(
                 ("OK", lambda b: self._submit(), True),
                 ("Cancel", lambda b: self._cancel(), False),
-            ),
-            False, False, 10
+            )
         )
-        self.window.show_all()
+        self.window.show()
         self.entry.grab_focus()
         Gtk.main()
         return {"result": self.result or "", "cancelled": self.cancelled}
@@ -181,22 +171,20 @@ class InputWindow(BaseWindow):
 class PasswordWindow(InputWindow):
     def run(self):
         vbox = self._create_window(500, 200)
-        self.entry = Gtk.Entry()
-        self.entry.set_visibility(False)
-        self.entry.set_invisible_char("*")
+        self.entry = Gtk.PasswordEntry()
+        self.entry.set_show_peek_icon(False)
         if self.data.get("placeholder"):
             self.entry.set_placeholder_text(self.data["placeholder"])
         self.entry.connect("activate", lambda e: self._submit())
-        vbox.pack_start(self.entry, False, False, 10)
+        vbox.append(self.entry)
 
-        vbox.pack_start(
+        vbox.append(
             self._make_button_box(
                 ("OK", lambda b: self._submit(), True),
                 ("Cancel", lambda b: self._cancel(), False),
-            ),
-            False, False, 10
+            )
         )
-        self.window.show_all()
+        self.window.show()
         self.entry.grab_focus()
         Gtk.main()
         return {"result": self.result or "", "cancelled": self.cancelled}
@@ -206,36 +194,34 @@ class ChecklistWindow(BaseWindow):
     def run(self):
         choices = self.data.get("choices", [])
         defaults = set(self.data.get("default", []))
-        
-        item_height = 35
-        window_height = min(len(choices) * item_height + 150, 600)
-        vbox = self._create_window(500, window_height)
-        
+
+        vbox = self._create_window(500, min(len(choices) * 35 + 150, 600))
+
         listbox = Gtk.ListBox()
+        listbox.set_selection_mode(Gtk.SelectionMode.NONE)
         self._checks = []
-        
+
         for choice in choices:
             row = Gtk.ListBoxRow()
             check = Gtk.CheckButton(label=choice)
             check.set_active(choice in defaults)
-            row.add(check)
-            listbox.add(row)
+            row.set_child(check)
+            listbox.append(row)
             self._checks.append(check)
-        
-        vbox.pack_start(listbox, True, True, 0)
-        vbox.pack_start(
+
+        vbox.append(listbox)
+        vbox.append(
             self._make_button_box(
                 ("OK", lambda b: self._ok(), True),
                 ("Cancel", lambda b: self._cancel(), False),
-            ),
-            False, False, 10
+            )
         )
         return super().run()
-    
+
     def _ok(self):
         self.result = [c.get_label() for c in self._checks if c.get_active()]
         self._quit()
-    
+
     def _cancel(self):
         self.cancelled = True
         self._quit()
@@ -245,10 +231,10 @@ class MsgWindow(BaseWindow):
     def run(self):
         vbox = self._create_window(400, 200)
         btn = Gtk.Button(label="OK")
-        btn.get_style_context().add_class("suggested-action")
+        btn.add_css_class("suggested-action")
         btn.set_halign(Gtk.Align.CENTER)
         btn.connect("clicked", lambda b: self._quit())
-        vbox.pack_start(btn, False, False, 10)
+        vbox.append(btn)
         return super().run()
 
 
@@ -270,8 +256,8 @@ class SummaryWindow(BaseWindow):
         textview.set_editable(False)
         textview.get_buffer().set_text(text)
         textview.set_wrap_mode(Gtk.WrapMode.WORD)
-        scrolled.add(textview)
-        vbox.pack_start(scrolled, True, True, 0)
+        scrolled.set_child(textview)
+        vbox.append(scrolled)
         return super().run()
 
 
@@ -279,72 +265,78 @@ class ProgressWindow(BaseWindow):
     def _create_window(self, default_w=800, default_h=600):
         self.window = Gtk.Window(title=self.title_text or "forge-ui")
         self.window.set_default_size(default_w, default_h)
-        self.window.set_position(Gtk.WindowPosition.CENTER)
-        self.window.connect("key-press-event", self._on_key)
+        key_controller = Gtk.EventControllerKey.new()
+        key_controller.connect("key-pressed", self._on_key)
+        self.window.add_controller(key_controller)
         self.window.connect("destroy", self._on_destroy)
 
-        css = get_global_css(self._title_color, self._accent_color)
-        provider = Gtk.CssProvider()
-        provider.load_from_data(css.encode())
-        Gtk.StyleContext.add_provider_for_screen(
-            Gdk.Screen.get_default(), provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
-
         vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        vbox.set_border_width(20)
+        vbox.set_margin_top(20)
+        vbox.set_margin_bottom(20)
+        vbox.set_margin_start(20)
+        vbox.set_margin_end(20)
         vbox.set_valign(Gtk.Align.FILL)
         vbox.set_vexpand(True)
-        self.window.add(vbox)
+        self.window.set_child(vbox)
 
         if self.title_text:
             title_label = Gtk.Label(label=self.title_text)
-            title_label.get_style_context().add_class("title")
+            title_label.add_css_class("title-1")
             title_label.set_halign(Gtk.Align.CENTER)
-            vbox.pack_start(title_label, False, False, 0)
+            vbox.append(title_label)
 
         if self.message:
             msg_label = Gtk.Label(label=self.message)
             msg_label.set_halign(Gtk.Align.CENTER)
-            msg_label.set_line_wrap(True)
+            msg_label.set_wrap(True)
             msg_label.set_max_width_chars(60)
-            vbox.pack_start(msg_label, False, False, 10)
+            vbox.append(msg_label)
 
         return vbox
 
     def run(self):
         vbox = self._create_window(800, 600)
-        
+
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_hexpand(True)
         scrolled.set_vexpand(True)
-        
+
         self.log_view = Gtk.TextView()
         self.log_view.set_editable(False)
         self.log_view.set_wrap_mode(Gtk.WrapMode.WORD)
         self.log_view.set_hexpand(True)
         self.log_view.set_vexpand(True)
-        
-        font = Pango.FontDescription("monospace 10")
-        self.log_view.modify_font(font)
-        self.log_view.get_style_context().add_class("logview")
-        
-        scrolled.add(self.log_view)
-        vbox.pack_start(scrolled, True, True, 0)
-        
+        self.log_view.add_css_class("logview")
+
+        scrolled.set_child(self.log_view)
+        vbox.append(scrolled)
+
         self.spinner = Gtk.Spinner()
         self.spinner.start()
-        vbox.pack_start(self.spinner, False, False, 5)
-        
-        vbox.pack_start(
-            self._make_button_box(("Cancel", lambda b: self._cancel(), False)),
-            False, False, 10
+        vbox.append(self.spinner)
+
+        vbox.append(
+            self._make_button_box(("Cancel", lambda b: self._cancel(), False))
+        )
+
+        # Load custom CSS for logview if needed (monospace, accent color)
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_data(b"""
+        .logview {
+            font-family: monospace;
+            padding: 8px;
+        }
+        """)
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(),
+            css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
         self.success = True
         self._proc = None
-        self.window.show_all()
+        self.window.show()
         threading.Thread(target=self._run_command, daemon=True).start()
         Gtk.main()
         return {"result": "success" if self.success else "failure",
@@ -370,7 +362,7 @@ class ProgressWindow(BaseWindow):
         GLib.idle_add(self._done)
 
     def _append_log(self, line):
-        clean = ''.join(c for c in line if 32 <= ord(c) <= 126 or c in '\n\r\t')
+        clean = ''.join(c for c in line if c.isprintable() or c in '\n\r\t ')
         buf = self.log_view.get_buffer()
         buf.insert(buf.get_end_iter(), clean)
         self.log_view.scroll_to_iter(buf.get_end_iter(), 0.0, False, 0.0, 0.0)

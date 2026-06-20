@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import gi
-gi.require_version('Gtk', '3.0')
-gi.require_version('Gdk', '3.0')
+gi.require_version('Gtk', '4.0')
 import os
 import sys
 from gi.repository import Gtk
@@ -20,8 +19,7 @@ class ArtixForgeDispatcher:
         self.state = {}
         self.load_state()
         self.mode = self.state.get("MODE", "auto")
-        
-        # Route to appropriate window
+
         if self.mode == "auto":
             self.window = AutomaticWindow(state_file, self.state)
         elif self.mode == "manual":
@@ -51,12 +49,10 @@ class ArtixForgeDispatcher:
                             self.state[key] = value
             except Exception as e:
                 print(f"Warning: Could not load state: {e}")
-    
+
     def run(self):
         self.window.run()
 
 def run_dispatcher(state_file):
-    import traceback
-    traceback.print_stack()
     dispatcher = ArtixForgeDispatcher(state_file)
     dispatcher.run()

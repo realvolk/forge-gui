@@ -1,8 +1,8 @@
 # forge-gui
 
-GTK3 graphical frontend for ArtixForge and Volk's Forge Framework (VFF).
+GTK4 graphical frontend for ArtixForge and Volk's Forge Framework (VFF).
 
-Provides a single command-line interface that renders a **GTK3 window** for all user interactions. All widgets share the same JSON input/output contract, allowing Bash scripts (ArtixForge) and Python applications (VFF) to use a consistent GUI backend.
+Provides a single command-line interface that renders a **GTK4 window** for all user interactions. All widgets share the same JSON input/output contract, allowing Bash scripts (ArtixForge) and Python applications (VFF) to use a consistent GUI backend.
 
 ---
 
@@ -21,7 +21,7 @@ pip install -e .
 #### Artix Linux
 
 ```bash
-sudo pacman -S gtk3 python-gobject
+sudo pacman -S gtk4 libadawaita python-gobject
 ```
 
 ---
@@ -69,11 +69,17 @@ All widgets accept JSON via `stdin` or `--input <file>` and return JSON to `stde
 
 ### `--mode gui`
 
-Force graphical UI (GTK3). Requires `$DISPLAY` to be set.
+Force graphical UI (GTK4). Requires `$DISPLAY` to be set.
 
 ### `--mode auto` (default)
 
 Same as `--mode gui` (legacy, kept for compatibility).
+
+### `--mode config` (special case)
+
+Launches the persistent configuration window for ArtixForge installation.
+This is the mode used by the ArtixForge installer when a graphical
+environment is detected.
 
 ---
 
@@ -85,4 +91,4 @@ ArtixForge detects `$DISPLAY` and calls `forge-gui` for all interactive prompts,
 
 ## License
 
-Volk Open License 1.0 (see `LICENSE` file).
+Forge Attribution License 1.0 (see `LICENSE` file).

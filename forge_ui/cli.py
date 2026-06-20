@@ -1,41 +1,23 @@
 #!/usr/bin/env python3
 import sys
-sys.path = [p for p in sys.path if p != '']
-
-import gi
-gi.require_version('Gtk', '3.0')
-gi.require_version('Gdk', '3.0')
-
 import os
-
-os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
-
-import pathlib
-pkg_dir = pathlib.Path(__file__).resolve().parent
-for pyc in pkg_dir.rglob('*.pyc'):
-    try:
-        pyc.unlink()
-    except OSError:
-        pass
-for cachedir in pkg_dir.rglob('__pycache__'):
-    try:
-        for f in cachedir.iterdir():
-            f.unlink()
-        cachedir.rmdir()
-    except OSError:
-        pass
-
 import json
 import argparse
+import gi
+gi.require_version('Gtk', '4.0')
+gi.require_version('Adw', '1')
+from gi.repository import Gtk, Adw
+
 from .theme import get_colors
 from .schema import validate
 from .backends.gui import GuiBackend
 
 
 def main():
+    Adw.init()
     sys.stderr.write("=== CLI.PY STARTED ===\n")
     sys.stderr.flush()
-    parser = argparse.ArgumentParser(description="GTK3 GUI frontend")
+    parser = argparse.ArgumentParser(description="GTK4 GUI frontend")
     parser.add_argument("--mode", choices=["auto", "gui", "config"], default="auto",
                         help="Display mode: config = persistent configuration window, gui = single widget, auto = gui if DISPLAY set")
     parser.add_argument("--input", "-i", type=argparse.FileType("r"),
@@ -47,8 +29,6 @@ def main():
     parser.add_argument("--color-accent", type=int, default=None,
                         help="Accent color (256-color code)")
     args = parser.parse_args()
-
-    print(f"DEBUG: args.mode = {args.mode}", file=sys.stderr)
 
     if args.mode == "config":
         state_file = "/tmp/artix-installer/state.conf"
