@@ -14,72 +14,81 @@ class BaseWindow:
         self.state = state
         self.pages = []
         self.current_page = 0
-        
+        self._css_provider = None
+
         title_color, accent_color = get_colors()
         self.title_color = title_color
         self.accent_color = accent_color
-        
+
         screen = Gdk.Screen.get_default()
         if screen:
             monitor = screen.get_primary_monitor()
             geometry = screen.get_monitor_workarea(monitor)
             win_width = min(820, geometry.width - 40)
-            win_height = min(580, geometry.height - 80)
+            win_height = min(600, geometry.height - 80)
         else:
             win_width = 820
-            win_height = 580
+            win_height = 600
 
         self.window = Gtk.Window(title=title)
         self.window.set_default_size(win_width, win_height)
         self.window.set_position(Gtk.WindowPosition.CENTER)
         self.window.connect("destroy", Gtk.main_quit)
-        
-        # Background colour
-        bg = self.state.get("GUI_BACKGROUND", "black")
-        if bg == "white":
-            self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 1))
-        else:
-            self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1))
-        
-        # Global styling
-        css = get_global_css(self.title_color, self.accent_color)
-        provider = Gtk.CssProvider()
-        provider.load_from_data(css.encode())
-        Gtk.StyleContext.add_provider_for_screen(
-            Gdk.Screen.get_default(), provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
-        
-        # Main vertical box
+
+        self._apply_theme()
+
         main_vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         main_vbox.set_border_width(10)
         self.window.add(main_vbox)
-        
-        # Header
+
         header = Gtk.Label()
         header.set_markup('<span size="large" weight="bold">ArtixForge Installer</span>')
         main_vbox.pack_start(header, False, False, 0)
-        
-        # Stack for pages
+
         self.stack = Gtk.Stack()
         self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
         main_vbox.pack_start(self.stack, True, True, 0)
-        
-        # Navigation buttons
+
         nav_box = Gtk.Box(spacing=10)
         nav_box.set_halign(Gtk.Align.CENTER)
         nav_box.set_margin_top(10)
-        
+
         self.back_btn = Gtk.Button(label="Back")
         self.back_btn.connect("clicked", self.on_back)
         self.back_btn.set_sensitive(False)
         nav_box.pack_start(self.back_btn, False, False, 0)
-        
+
         self.next_btn = Gtk.Button(label="Next")
         self.next_btn.connect("clicked", self.on_next)
         nav_box.pack_start(self.next_btn, False, False, 0)
-        
+
         main_vbox.pack_start(nav_box, False, False, 0)
+
+    def _apply_theme(self):
+        light = (self.state.get("GUI_BACKGROUND", "black") == "white")
+        css = get_global_css(self.title_color, self.accent_color, light=light)
+
+        if self._css_provider is not None:
+            Gtk.StyleContext.remove_provider_for_screen(
+                Gdk.Screen.get_default(), self._css_provider
+            )
+
+        self._css_provider = Gtk.CssProvider()
+        self._css_provider.load_from_data(css.encode())
+        Gtk.StyleContext.add_provider_for_screen(
+            Gdk.Screen.get_default(), self._css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        )
+
+        if light:
+            self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0.96, 0.96, 0.96, 1.0))
+        else:
+            self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1.0))
+
+
+    def on_bg_toggled(self, check):
+        self.state["GUI_BACKGROUND"] = "white" if check.get_active() else "black"
+        self._apply_theme()
     
     def add_page(self, title, page):
         self.stack.add_titled(page, title, title)
@@ -229,12 +238,6 @@ class CommonPages:
         
         return box
     
-    def on_bg_toggled(self, check):
-        if check.get_active():
-            self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 1))
-        else:
-            self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1))
-        
     def create_filesystem_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         
@@ -452,6 +455,13 @@ class CommonPages:
         
         notebook = Gtk.Notebook()
         
+        bg = self.state.get("GUI_BACKGROUND", "black")
+        if bg == "white":
+            nb_bg = Gdk.RGBA(1, 1, 1, 1)
+        else:
+            nb_bg = Gdk.RGBA(0.145, 0.145, 0.145, 1)  # #252525
+        notebook.override_background_color(Gtk.StateFlags.NORMAL, nb_bg)
+
         categories = {
             "System Tools": ["git", "flatpak", "fastfetch", "firewalld", "bluez", "zram-tools", "usb_modeswitch"],
             "Editors": ["nano", "vim", "neovim", "micro", "helix"],
@@ -470,6 +480,8 @@ class CommonPages:
             page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
             page_box.set_margin_start(10)
             page_box.set_margin_top(10)
+            
+            page_box.override_background_color(Gtk.StateFlags.NORMAL, nb_bg)
             
             for pkg in pkgs:
                 check = Gtk.CheckButton(label=pkg)

@@ -3,6 +3,7 @@ import gi
 gi.require_version('Gtk', '3.0')
 gi.require_version('Gdk', '3.0')
 import sys
+import os
 from gi.repository import Gtk, Gdk
 from .automatic import AutomaticWindow
 from .manual import ManualWindow
@@ -11,37 +12,29 @@ from .recovery import RecoveryWindow
 from .iso import ISOBuilderWindow
 from .migration import MigrationWindow
 from .resume import ResumeWindow
-from ..theme import get_global_css
+
 
 def run_mode_selection(state_file):
-    dialog = Gtk.Dialog(title="Select Installation Mode",
-                        parent=None,
-                        flags=Gtk.DialogFlags.MODAL)
-    dialog.set_default_size(500, 280)
-    dialog.set_position(Gtk.WindowPosition.CENTER)
-    dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
-    dialog.add_button("Start", Gtk.ResponseType.OK)
+    win = Gtk.Window(title="Select Installation Mode")
+    win.set_default_size(500, 380)
+    win.set_position(Gtk.WindowPosition.CENTER)
+    win.connect("destroy", lambda w: sys.exit(0))
 
-    css = get_global_css(212, 34)
-    provider = Gtk.CssProvider()
-    provider.load_from_data(css.encode())
-    Gtk.StyleContext.add_provider_for_screen(
-        dialog.get_screen(), provider,
-        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-    )
-
-    content = dialog.get_content_area()
-    content.set_spacing(10)
-    content.set_margin_top(20)
-    content.set_margin_start(20)
-    content.set_margin_end(20)
-    content.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1))
+    vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    vbox.set_border_width(20)
+    win.add(vbox)
 
     label = Gtk.Label()
     label.set_markup('<span size="large" weight="bold">Choose installation mode:</span>')
-    content.pack_start(label, False, False, 0)
+    vbox.pack_start(label, False, False, 0)
 
-    mode_store = Gtk.ListStore(str)
+    scrolled = Gtk.ScrolledWindow()
+    scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+    scrolled.set_min_content_height(200)
+
+    listbox = Gtk.ListBox()
+    listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+
     modes = [
         "Automatic Installation",
         "Manual Installation",
@@ -51,27 +44,45 @@ def run_mode_selection(state_file):
         "System Migration",
         "Resume Installation"
     ]
-    for mode in modes:
-        mode_store.append([mode])
 
-    mode_combo = Gtk.ComboBox.new_with_model(mode_store)
-    renderer = Gtk.CellRendererText()
-    renderer.set_property("foreground", "#f0f0f0")
-    mode_combo.pack_start(renderer, True)
-    mode_combo.add_attribute(renderer, "text", 0)
-    mode_combo.set_active(0)
-    mode_combo.set_size_request(380, -1)
-    content.pack_start(mode_combo, False, False, 0)
+    for i, mode in enumerate(modes):
+        row = Gtk.ListBoxRow()
+        lbl = Gtk.Label(label=mode, xalign=0, margin=8)
+        row.add(lbl)
+        listbox.add(row)
+        if i == 0:
+            listbox.select_row(row)
 
-    response = dialog.run()
-    if response != Gtk.ResponseType.OK:
-        dialog.destroy()
-        sys.exit(0)
+    scrolled.add(listbox)
+    vbox.pack_start(scrolled, True, True, 0)
 
-    idx = mode_combo.get_active()
-    chosen = modes[idx] if 0 <= idx < len(modes) else "Automatic Installation"
-    dialog.destroy()
+    btn_box = Gtk.Box(spacing=10)
+    btn_box.set_halign(Gtk.Align.END)
 
+    cancel_btn = Gtk.Button(label="Cancel")
+    cancel_btn.connect("clicked", lambda b: sys.exit(0))
+    btn_box.pack_start(cancel_btn, False, False, 0)
+
+    start_btn = Gtk.Button(label="Start")
+    start_btn.get_style_context().add_class("suggested-action")
+    btn_box.pack_start(start_btn, False, False, 0)
+
+    vbox.pack_start(btn_box, False, False, 0)
+
+    chosen_mode = [modes[0]]
+
+    def on_start(btn):
+        row = listbox.get_selected_row()
+        if row:
+            chosen_mode[0] = modes[row.get_index()]
+        win.destroy()
+
+    start_btn.connect("clicked", on_start)
+
+    win.show_all()
+    Gtk.main()
+
+    chosen = chosen_mode[0]
     state = {}
     if chosen == "Automatic Installation":
         window = AutomaticWindow(state_file, state)
