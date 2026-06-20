@@ -30,18 +30,16 @@ def _lighten_hex(hex_color, factor=0.2):
     return f"#{r:02x}{g:02x}{b:02x}"
 
 def get_global_css(title_color, accent_color):
-    """Return the full GTK3 CSS stylesheet as a string."""
     title_hex = _color_to_hex(title_color)
     accent_hex = _color_to_hex(accent_color)
     accent_light = _lighten_hex(accent_hex)
-
     return f"""
     * {{
         font-family: "Cantarell", "DejaVu Sans", sans-serif;
         background-color: transparent;
     }}
     window {{
-        background-color: #1e1e1e;
+        background-color: #1a1a1a;
     }}
     .title {{
         font-size: 24px;
@@ -51,11 +49,12 @@ def get_global_css(title_color, accent_color):
     }}
     button {{
         border-radius: 8px;
-        padding: 8px 18px;
+        padding: 10px 20px;
         font-weight: bold;
         background: #2d2d2d;
-        color: #eeeeee;
+        color: #f0f0f0;
         border: 1px solid #3c3c3c;
+        transition: all 0.2s ease;
     }}
     button:hover {{
         background: #3c3c3c;
@@ -63,31 +62,35 @@ def get_global_css(title_color, accent_color):
     }}
     button.suggested-action {{
         background: {accent_hex};
-        color: #1e1e1e;
+        color: #1a1a1a;
         border: none;
+        font-weight: bold;
     }}
     button.suggested-action:hover {{
         background: {accent_light};
     }}
     entry {{
         border-radius: 6px;
-        padding: 8px 10px;
+        padding: 10px 12px;
         background: #2d2d2d;
-        color: #eeeeee;
+        color: #f0f0f0;
         border: 1px solid #3c3c3c;
+        caret-color: {accent_hex};
     }}
     entry:focus {{
         border-color: {accent_hex};
+        box-shadow: 0 0 0 2px {accent_hex}44;
     }}
     combobox {{
         border-radius: 6px;
         background: #2d2d2d;
+        color: #f0f0f0;
     }}
     combobox button {{
         border-radius: 6px;
         background: #2d2d2d;
-        color: #eeeeee;
-        padding: 6px 12px;
+        color: #f0f0f0;
+        padding: 8px 14px;
     }}
     combobox button:hover {{
         background: #3c3c3c;
@@ -95,31 +98,29 @@ def get_global_css(title_color, accent_color):
     menu {{
         background: #2d2d2d;
         border: 1px solid #3c3c3c;
+        border-radius: 6px;
     }}
     menuitem {{
-        padding: 6px 12px;
-        color: #eeeeee;
+        padding: 8px 16px;
+        color: #f0f0f0;
     }}
     menuitem:hover {{
         background: {accent_hex};
-        color: #1e1e1e;
+        color: #1a1a1a;
     }}
     checkbutton {{
-        margin: 4px 0;
-        color: #eeeeee;
+        margin: 6px 0;
+        color: #f0f0f0;
     }}
     checkbutton check {{
         border-radius: 4px;
         background: #2d2d2d;
         border: 1px solid #3c3c3c;
-        min-width: 16px;
-        min-height: 16px;
+        min-width: 18px;
+        min-height: 18px;
     }}
     checkbutton check:checked {{
         background: {accent_hex};
-        border-color: {accent_hex};
-    }}
-    checkbutton:hover check {{
         border-color: {accent_hex};
     }}
     notebook {{
@@ -130,7 +131,7 @@ def get_global_css(title_color, accent_color):
     notebook tab {{
         background: #2d2d2d;
         border-radius: 6px 6px 0 0;
-        padding: 8px 16px;
+        padding: 10px 20px;
         margin-right: 2px;
         color: #bbbbbb;
     }}
@@ -139,19 +140,13 @@ def get_global_css(title_color, accent_color):
     }}
     notebook tab:checked {{
         background: {accent_hex};
-        color: #1e1e1e;
+        color: #1a1a1a;
         font-weight: bold;
-    }}
-    notebook tab:checked:hover {{
-        background: {accent_light};
     }}
     scrolledwindow {{
         border-radius: 6px;
         background: #1e1e1e;
-    }}
-    scrolledwindow .frame {{
         border: 1px solid #3c3c3c;
-        border-radius: 6px;
     }}
     textview {{
         background: #1e1e1e;
@@ -160,39 +155,23 @@ def get_global_css(title_color, accent_color):
         font-family: "Monospace", "Source Code Pro", monospace;
         font-size: 12px;
     }}
-    textview text {{
-        background: #1e1e1e;
-        color: #d0d0d0;
-    }}
     textview text:selected {{
         background: {accent_hex};
-        color: #1e1e1e;
-    }}
-    progressbar {{
-        min-height: 8px;
+        color: #1a1a1a;
     }}
     progressbar trough {{
         background: #2d2d2d;
         border-radius: 4px;
-        min-height: 8px;
+        min-height: 10px;
     }}
     progressbar progress {{
         background: {accent_hex};
         border-radius: 4px;
     }}
-    spinner {{
-        color: {accent_hex};
-    }}
     frame {{
         border-radius: 8px;
         border: 1px solid #3c3c3c;
         background: #252525;
-    }}
-    separator {{
-        background-color: #3c3c3c;
-    }}
-    box, grid, centerbox {{
-        background: transparent;
     }}
     .logview {{
         color: {accent_hex};

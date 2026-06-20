@@ -49,8 +49,12 @@ def main():
     if args.mode == "config":
         state_file = "/tmp/artix-installer/state.conf"
         os.makedirs(os.path.dirname(state_file), exist_ok=True)
-        from .artixgui.mode_select import run_mode_selection
-        run_mode_selection(state_file)
+        try:
+            from .artixgui.mode_select import run_mode_selection
+            run_mode_selection(state_file)
+        except Exception as e:
+            print(f"GUI mode selection failed: {e}", file=sys.stderr)
+            sys.exit(1)
         sys.exit(0)
 
     try:

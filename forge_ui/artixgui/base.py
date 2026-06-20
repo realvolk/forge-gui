@@ -212,8 +212,19 @@ class CommonPages:
         
         self.theme_combo.connect("changed", on_theme_changed)
         
+        self.bg_check = Gtk.CheckButton(label="Use white background")
+        self.bg_check.set_active(self.state.get("GUI_BACKGROUND", "black") == "white")
+        self.bg_check.connect("toggled", self.on_bg_toggled)
+        box.pack_start(self.bg_check, False, False, 10)
+        
         return box
     
+    def on_bg_toggled(self, check):
+        if check.get_active():
+            self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(1, 1, 1, 1))
+        else:
+            self.window.override_background_color(Gtk.StateFlags.NORMAL, Gdk.RGBA(0, 0, 0, 1))
+        
     def create_filesystem_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         
@@ -349,6 +360,20 @@ class CommonPages:
         self.de_combo.pack_start(renderer_text, True)
         self.de_combo.add_attribute(renderer_text, "text", 0)
         box.pack_start(self.de_combo, False, False, 0)
+        
+        # Display stack
+        xstack_label = Gtk.Label(label="Display stack:", xalign=0)
+        box.pack_start(xstack_label, False, False, 5)
+        
+        xstack_store = Gtk.ListStore(str)
+        for xs in ["xlibre", "xorg"]:
+            xstack_store.append([xs])
+        
+        self.xstack_combo = Gtk.ComboBox.new_with_model(xstack_store)
+        renderer_text = Gtk.CellRendererText()
+        self.xstack_combo.pack_start(renderer_text, True)
+        self.xstack_combo.add_attribute(renderer_text, "text", 0)
+        box.pack_start(self.xstack_combo, False, False, 0)
         
         dm_label = Gtk.Label(label="Display manager:", xalign=0)
         box.pack_start(dm_label, False, False, 5)
@@ -539,6 +564,9 @@ class CommonPages:
         self.arch_repos_check = Gtk.CheckButton(label="Enable Arch Linux repositories")
         box.pack_start(self.arch_repos_check, False, False, 5)
         
+        self.auris_check = Gtk.CheckButton(label="Enable AURIS (Artix User Repository of Init Scripts)")
+        box.pack_start(self.auris_check, False, False, 5)
+
         self.offline_check = Gtk.CheckButton(label="Enable offline installation mode (cached packages)")
         box.pack_start(self.offline_check, False, False, 5)
         
@@ -694,6 +722,10 @@ class CommonPages:
                     self.state['GUM_TITLE_COLOR'] = "3"
                     self.state['GUM_ACCENT_COLOR'] = "11"
         
+        # Background
+        if hasattr(self, 'bg_check'):
+            self.state['GUI_BACKGROUND'] = "white" if self.bg_check.get_active() else "black"
+        
         # Filesystem
         if hasattr(self, 'fs_combo'):
             iter = self.fs_combo.get_active_iter()
@@ -739,6 +771,12 @@ class CommonPages:
             iter = self.de_combo.get_active_iter()
             if iter:
                 self.state['WM_DE'] = self.de_combo.get_model()[iter][0]
+        
+        # Display stack
+        if hasattr(self, 'xstack_combo'):
+            iter = self.xstack_combo.get_active_iter()
+            if iter:
+                self.state['X_STACK'] = self.xstack_combo.get_model()[iter][0]
         
         # Display manager
         if hasattr(self, 'dm_combo'):
@@ -811,6 +849,10 @@ class CommonPages:
         # Arch repos
         if hasattr(self, 'arch_repos_check'):
             self.state['ENABLE_ARCH_REPOS'] = "yes" if self.arch_repos_check.get_active() else "no"
+        
+        # AURIS
+        if hasattr(self, 'auris_check'):
+            self.state['ENABLE_AURIS'] = "yes" if self.auris_check.get_active() else "no"
         
         # Offline mode
         if hasattr(self, 'offline_check'):
