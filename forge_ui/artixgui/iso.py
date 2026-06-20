@@ -189,6 +189,7 @@ class ISOBuilderWindow(BaseWindow):
 
         self.state['QUICK_PROFILE'] = self.profile_name
         self.state['ISO_EXTRA_PACKAGES'] = self.extra_packages
+        self.state['ISO_BOOT_MODE'] = self.boot_mode
         self.state['MODE'] = 'iso'
         self.state['GUI_MODE'] = 'yes'
 

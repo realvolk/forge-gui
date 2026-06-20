@@ -18,6 +18,11 @@ class MigrationWindow(BaseWindow):
         self.init_target = None
         self.desktop_source = None
         self.desktop_target = None
+        self.stack.connect("notify::visible-child", self.on_page_changed)
+    
+    def on_page_changed(self, stack, param):
+        if self.stack.get_visible_child() == self.pages[-1]:
+            self.update_summary()
 
     def create_type_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)

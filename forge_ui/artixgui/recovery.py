@@ -2,6 +2,7 @@
 import gi
 gi.require_version('Gtk', '3.0')
 import os
+import subprocess
 from gi.repository import Gtk
 from .base import BaseWindow
 from ..backends.gui import ProgressWindow

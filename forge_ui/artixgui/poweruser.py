@@ -52,6 +52,7 @@ class PowerUserWindow(AutomaticWindow):
         return sections
 
     def save_sections(self):
+        os.makedirs(os.path.dirname(SECTION_CONFIG), exist_ok=True)
         with open(SECTION_CONFIG, 'w') as f:
             f.write(f'GARTIX_SECTIONS="{" ".join(self.recipe_sections)}"\n')
 
@@ -213,7 +214,7 @@ class PowerUserWindow(AutomaticWindow):
         box.set_margin_top(20)
 
         label = Gtk.Label()
-        label.set_markup('<span size="large" weight="bold">Coreutils & Fallback</span>')
+        label.set_markup('<span size="large" weight="bold">Coreutils &amp; Fallback</span>')
         box.pack_start(label, False, False, 0)
 
         coreutils_label = Gtk.Label(label="Coreutils implementation:", xalign=0)
@@ -359,7 +360,7 @@ class PowerUserWindow(AutomaticWindow):
         dbg_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         dbg_box.set_margin_start(10)
         dbg_label = Gtk.Label(label="Debugging", xalign=0)
-        dbg_label.set_markup('<b>Debugging & Tracing</b>')
+        dbg_label.set_markup('<b>Debugging &amp; Tracing</b>')
         dbg_box.pack_start(dbg_label, False, False, 0)
         self.dbg_checkboxes = {}
         for d in ["ftrace", "perf", "kprobes", "ebpf"]:
