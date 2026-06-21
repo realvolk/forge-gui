@@ -160,6 +160,8 @@ class BaseWindow:
     def on_back(self, widget):
         if self.current_page > 0:
             self.current_page -= 1
+            while self.current_page > 0 and not self.pages[self.current_page].get_visible():
+                self.current_page -= 1
             self.stack.set_visible_child(self.pages[self.current_page])
             self.update_nav_buttons()
 
@@ -169,6 +171,10 @@ class BaseWindow:
                 if not self._validate_passwords():
                     return
             self.current_page += 1
+            while self.current_page < len(self.pages) and not self.pages[self.current_page].get_visible():
+                self.current_page += 1
+            if self.current_page >= len(self.pages):
+                self.current_page = len(self.pages) - 1
             self.stack.set_visible_child(self.pages[self.current_page])
             self.update_nav_buttons()
         else:
