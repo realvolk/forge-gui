@@ -301,6 +301,10 @@ class ProgressWindow(BaseWindow):
     def run(self):
         vbox = self._create_window(800, 600)
 
+        app = Gtk.Application.get_default()
+        if app:
+            app.add_window(self.window)
+
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_hexpand(True)
