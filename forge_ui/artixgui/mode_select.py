@@ -116,6 +116,7 @@ class ModeSelectApp(Gtk.Application):
 
         self.hold()
         config_win = cls(self.state_file, state)
+        config_win.app = self
         config_win.run()
         self.release()
         self.quit()
