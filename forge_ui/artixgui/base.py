@@ -10,13 +10,15 @@ from ..theme import get_colors, ACCENT_COLORS
 
 
 class BaseWindow:
-    def __init__(self, state_file, state, title="ArtixForge"):
+    def __init__(self, state_file, state, title="ArtixForge", app=None):
         self.state_file = state_file
         self.state = state
         self.pages = []
         self.current_page = 0
         self._conditional_pages = {}
         self._users_page = None
+
+        self.app = app or Gtk.Application.get_default()
 
         title_color, accent_color = get_colors()
         self.title_color = title_color
@@ -226,7 +228,6 @@ class BaseWindow:
 
     def run_installer(self):
         self.save_state()
-        # Three levels up from base.py -> forge_ui/artixgui/ -> root of the repo
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         install_script = os.path.join(base_dir, "install")
 
@@ -238,9 +239,8 @@ class BaseWindow:
              "state": self.state},
             title_color=self.title_color, accent_color=self.accent_color
         )
-        app = Gtk.Application.get_default()
-        if app:
-            app.add_window(progress.window)
+        if self.app:
+            self.app.add_window(progress.window)
         result = progress.run()
 
         if result.get("cancelled"):
