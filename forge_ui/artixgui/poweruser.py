@@ -59,6 +59,7 @@ class PowerUserWindow(AutomaticWindow):
             self.coreutils_combo.connect("notify::selected", self._on_coreutils_changed)
 
         self.stack.set_visible_child(self.pages[0])
+        self._update_conditional_pages()
 
     def _set_page_visible(self, page_idx, visible):
         if page_idx is None or page_idx >= len(self.pages):
@@ -73,6 +74,13 @@ class PowerUserWindow(AutomaticWindow):
     def _on_coreutils_changed(self, combo, param):
         self._update_conditional_pages()
 
+    def _on_section_toggled(self, check, section):
+        sections = {sec for sec, cb in self.section_checkboxes.items() if cb.get_active()}
+        self.recipe_sections = sections
+        self.save_sections()
+        self.fetch_recipe_list()
+        self._rebuild_packages_page()
+
     def _update_conditional_pages(self):
         linux_selected = False
         if hasattr(self, 'package_checkboxes') and "linux" in self.package_checkboxes:
@@ -82,6 +90,8 @@ class PowerUserWindow(AutomaticWindow):
         self._set_page_visible(self._feature_flags_page_idx, linux_selected)
         if hasattr(self, 'fallback_check'):
             self.fallback_check.set_sensitive(linux_selected)
+        if hasattr(self, 'fallback_frame'):
+            self.fallback_frame.set_visible(linux_selected)
 
         custom_selected = False
         if hasattr(self, 'coreutils_combo'):
@@ -120,6 +130,23 @@ class PowerUserWindow(AutomaticWindow):
                             self.recipes.append((name, section, desc))
         except Exception:
             self.recipes = [("linux", "OFFICIAL/Base", "Kernel")]
+
+    def _rebuild_packages_page(self):
+        if not hasattr(self, 'packages_container'):
+            return
+        # Remove all children (lol)
+        while True:
+            child = self.packages_container.get_first_child()
+            if child is None:
+                break
+            self.packages_container.remove(child)
+        self.package_checkboxes = {}
+        for name, section, desc in self.recipes:
+            check = Gtk.CheckButton(label=f"{name} [{section}] – {desc}")
+            self.packages_container.append(check)
+            self.package_checkboxes[name] = check
+            check.connect("toggled", self._on_package_toggled, name)
+        self._update_conditional_pages()
 
     def create_profile_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -214,6 +241,7 @@ class PowerUserWindow(AutomaticWindow):
         for sec in sections:
             check = Gtk.CheckButton(label=sec)
             check.set_active(sec in self.recipe_sections)
+            check.connect("toggled", self._on_section_toggled, sec)
             self.section_checkboxes[sec] = check
             box.append(check)
         return box
@@ -258,14 +286,15 @@ class PowerUserWindow(AutomaticWindow):
         box.append(coreutils_label)
         self.coreutils_combo = Gtk.DropDown.new(Gtk.StringList.new(["gnu", "busybox", "uutils", "artix", "custom", "none"]))
         box.append(self.coreutils_combo)
-        fallback_frame = Gtk.Frame(label="Fallback binary kernel")
+        self.fallback_frame = Gtk.Frame(label="Fallback binary kernel")
         fallback_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         fallback_box.set_margin_start(10)
         self.fallback_check = Gtk.CheckButton(label="Keep binary kernel as fallback (recommended)")
         self.fallback_check.set_active(True)
         fallback_box.append(self.fallback_check)
-        fallback_frame.set_child(fallback_box)
-        box.append(fallback_frame)
+        self.fallback_frame.set_child(fallback_box)
+        box.append(self.fallback_frame)
+        self.fallback_frame.set_visible(False)
         return box
 
     def create_kernel_config_page(self):
