@@ -4,9 +4,9 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 import os
 import subprocess
-from gi.repository import Gtk, Adw, Gdk, GLib
+from gi.repository import Gtk, Adw, Gdk, GLib, Pango
 from ..backends.gui import ProgressWindow
-from ..theme import get_colors
+from ..theme import get_colors, ACCENT_COLORS
 
 
 class BaseWindow:
@@ -16,6 +16,7 @@ class BaseWindow:
         self.pages = []
         self.current_page = 0
         self._passwords_valid = True
+        self._revealers = []
 
         title_color, accent_color = get_colors()
         self.title_color = title_color
@@ -23,7 +24,7 @@ class BaseWindow:
 
         self.window = Gtk.Window(title=title)
         self.window.set_default_size(680, 420)
-        self._loop = None
+        self.window.connect("destroy", lambda *_: None)
 
         self._apply_theme()
 
@@ -32,7 +33,6 @@ class BaseWindow:
         main_vbox.set_margin_bottom(10)
         main_vbox.set_margin_start(10)
         main_vbox.set_margin_end(10)
-        self.window.set_child(main_vbox)
 
         header = Gtk.Label()
         header.set_markup('<span size="large" weight="bold">ArtixForge Installer</span>')
@@ -58,12 +58,38 @@ class BaseWindow:
 
         main_vbox.append(nav_box)
 
+        # Artix logo overlay
+        logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "media", "artix-logo.png")
+        if os.path.exists(logo_path):
+            overlay = Gtk.Overlay()
+            overlay.set_child(main_vbox)
+            logo = Gtk.Picture.new_for_filename(logo_path)
+            logo.set_opacity(0.4)
+            logo.set_halign(Gtk.Align.CENTER)
+            logo.set_valign(Gtk.Align.CENTER)
+            logo.set_can_shrink(True)
+            overlay.add_overlay(logo)
+            self.window.set_child(overlay)
+        else:
+            self.window.set_child(main_vbox)
+
+        self._loop = None
+
     def _apply_theme(self):
         light = (self.state.get("GUI_BACKGROUND", "black") == "white")
         style_manager = Adw.StyleManager.get_default()
         style_manager.set_color_scheme(
             Adw.ColorScheme.FORCE_LIGHT if light else Adw.ColorScheme.FORCE_DARK
         )
+        title_color_str = self.state.get("GUM_TITLE_COLOR", "212")
+        try:
+            tc = int(title_color_str)
+            accent_tuple = ACCENT_COLORS.get(tc)
+            if accent_tuple:
+                accent_color = Adw.AccentColor(*accent_tuple)
+                style_manager.set_accent_color(accent_color)
+        except (ValueError, TypeError):
+            pass
 
     def on_bg_toggled(self, check):
         self.state["GUI_BACKGROUND"] = "white" if check.get_active() else "black"
@@ -72,6 +98,12 @@ class BaseWindow:
     def add_page(self, title, page):
         self.stack.add_titled(page, title, title)
         self.pages.append(page)
+
+    def _set_page_visible(self, page_idx, visible):
+        """Show or hide a stack child."""
+        if page_idx is None or page_idx >= len(self.pages):
+            return
+        self.pages[page_idx].set_visible(visible)
 
     def save_state(self):
         try:
@@ -164,8 +196,14 @@ class BaseWindow:
     def on_back(self, widget):
         if self.current_page > 0:
             self.current_page -= 1
-            while self.current_page > 0 and not self.pages[self.current_page].get_visible():
-                self.current_page -= 1
+            while self.current_page > 0:
+                page = self.pages[self.current_page]
+                if isinstance(page, Gtk.Revealer) and not page.get_reveal_child():
+                    self.current_page -= 1
+                elif not isinstance(page, Gtk.Revealer) and not page.get_visible():
+                    self.current_page -= 1
+                else:
+                    break
             self.stack.set_visible_child(self.pages[self.current_page])
             self.update_nav_buttons()
 
@@ -175,8 +213,14 @@ class BaseWindow:
                 if not self._validate_passwords():
                     return
             self.current_page += 1
-            while self.current_page < len(self.pages) and not self.pages[self.current_page].get_visible():
-                self.current_page += 1
+            while self.current_page < len(self.pages):
+                page = self.pages[self.current_page]
+                if isinstance(page, Gtk.Revealer) and not page.get_reveal_child():
+                    self.current_page += 1
+                elif not isinstance(page, Gtk.Revealer) and not page.get_visible():
+                    self.current_page += 1
+                else:
+                    break
             if self.current_page >= len(self.pages):
                 self.current_page = len(self.pages) - 1
             self.stack.set_visible_child(self.pages[self.current_page])
@@ -227,9 +271,23 @@ class CommonPages:
         label.set_markup('<span size="x-large" weight="bold">Welcome to ArtixForge</span>')
         box.append(label)
 
+        info_text = "System Information:\n"
+        try:
+            cpu = subprocess.check_output("lscpu | grep 'Model name' | cut -d: -f2 | xargs", shell=True, text=True).strip()
+            ram = subprocess.check_output("free -h | awk '/^Mem:/ {print $2}'", shell=True, text=True).strip()
+            disk = subprocess.check_output("lsblk -dno NAME,SIZE | head -5", shell=True, text=True).strip()
+            info_text += f"CPU: {cpu}\nRAM: {ram}\nDisks:\n{disk}"
+        except Exception:
+            info_text += "(could not detect)"
+        sysinfo = Gtk.Label(label=info_text)
+        sysinfo.set_justify(Gtk.Justification.LEFT)
+        sysinfo.set_margin_top(10)
+        box.append(sysinfo)
+
         desc = Gtk.Label()
         desc.set_text("This installer will guide you through installing Artix Linux.\n\nPress Next to begin.")
         desc.set_justify(Gtk.Justification.CENTER)
+        desc.set_margin_top(10)
         box.append(desc)
 
         return box
@@ -258,14 +316,24 @@ class CommonPages:
             if 0 <= idx < len(themes):
                 theme = themes[idx]
                 colors = {
-                    "Gentoo": "#c678dd",
-                    "Artix": "#61afef",
-                    "Jet Black": "#928374",
-                    "Mono": "#a89984",
-                    "Retro": "#d19a66",
+                    "Gentoo": ("#c678dd", "#98c379"),
+                    "Artix": ("#61afef", "#56b6c2"),
+                    "Jet Black": ("#928374", "#e06c75"),
+                    "Mono": ("#a89984", "#ffffff"),
+                    "Retro": ("#d19a66", "#e5c07b"),
                 }
-                c = colors.get(theme, "#c678dd")
+                c, _ = colors.get(theme, ("#c678dd", "#98c379"))
                 preview.set_markup(f'<span foreground="{c}" weight="bold">This is how titles will look</span>')
+                # Apply accent immediately to GUI
+                style_manager = Adw.StyleManager.get_default()
+                accent_map = {
+                    "Gentoo": 212, "Artix": 39, "Jet Black": 245,
+                    "Mono": 250, "Retro": 3
+                }
+                tc = accent_map.get(theme, 212)
+                accent_tuple = ACCENT_COLORS.get(tc)
+                if accent_tuple:
+                    style_manager.set_accent_color(Adw.AccentColor(*accent_tuple))
 
         self.theme_combo.connect("notify::selected", on_theme_changed)
 
@@ -299,7 +367,7 @@ class CommonPages:
 
         def on_fs_changed(dropdown, _param):
             idx = dropdown.get_selected()
-            if idx == 1:  # btrfs
+            if idx == 1:
                 self.btrfs_box.set_visible(True)
             else:
                 self.btrfs_box.set_visible(False)
@@ -674,7 +742,6 @@ class CommonPages:
         if not self._validate_passwords():
             return False
 
-        # Theme
         if hasattr(self, 'theme_combo'):
             themes = ["Gentoo", "Artix", "Jet Black", "Mono", "Retro"]
             idx = self.theme_combo.get_selected()
@@ -694,7 +761,6 @@ class CommonPages:
         if hasattr(self, 'bg_check'):
             self.state['GUI_BACKGROUND'] = "white" if self.bg_check.get_active() else "black"
 
-        # Filesystem
         if hasattr(self, 'fs_combo'):
             fs_values = ["ext4", "btrfs", "xfs", "f2fs"]
             idx = self.fs_combo.get_selected()
@@ -707,7 +773,6 @@ class CommonPages:
             if 0 <= idx < len(btrfs_values):
                 self.state['BTRFS_LAYOUT'] = btrfs_values[idx]
 
-        # Bootloader
         if hasattr(self, 'bl_combo'):
             bl_values = ["grub", "refind", "efistub", "limine"]
             idx = self.bl_combo.get_selected()
@@ -717,7 +782,6 @@ class CommonPages:
         if hasattr(self, 'uki_check'):
             self.state['GENERATE_UKI'] = "yes" if self.uki_check.get_active() else "no"
 
-        # Kernel
         if hasattr(self, 'kernel_combo'):
             kernel_values = ["linux", "linux-zen", "linux-lts", "linux-hardened",
                              "linux-libre", "linux-cachyos-bore", "linux-bazzite-bin",
@@ -732,14 +796,12 @@ class CommonPages:
             if 0 <= idx < len(ucode_values):
                 self.state['MICROCODE_OVERRIDE'] = ucode_values[idx]
 
-        # Init
         if hasattr(self, 'init_combo'):
             init_values = ["openrc", "runit", "dinit", "s6"]
             idx = self.init_combo.get_selected()
             if 0 <= idx < len(init_values):
                 self.state['INIT'] = init_values[idx]
 
-        # Desktop
         if hasattr(self, 'de_combo'):
             de_values = ["kde", "sonicde", "xfce4", "lxqt", "lxde", "hyprland", "sway",
                          "niri", "i3wm", "dwm", "vxwm", "icewm", "mango", "none"]
@@ -759,28 +821,24 @@ class CommonPages:
             if 0 <= idx < len(dm_values):
                 self.state['DISPLAY_MANAGER'] = dm_values[idx]
 
-        # Network
         if hasattr(self, 'net_combo'):
             net_values = ["networkmanager", "dhcpcd+iwd", "connman", "none"]
             idx = self.net_combo.get_selected()
             if 0 <= idx < len(net_values):
                 self.state['NETWORK_STACK'] = net_values[idx]
 
-        # Audio
         if hasattr(self, 'audio_combo'):
             audio_values = ["pipewire", "pulseaudio", "none"]
             idx = self.audio_combo.get_selected()
             if 0 <= idx < len(audio_values):
                 self.state['AUDIO_STACK'] = audio_values[idx]
 
-        # Shell
         if hasattr(self, 'shell_combo'):
             shell_values = ["bash", "zsh", "fish"]
             idx = self.shell_combo.get_selected()
             if 0 <= idx < len(shell_values):
                 self.state['USER_SHELL'] = shell_values[idx]
 
-        # Extras
         extras = []
         if hasattr(self, '_CommonPages__extras_checkboxes'):
             cb_dict = self._CommonPages__extras_checkboxes

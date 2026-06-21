@@ -3,12 +3,13 @@ import gi
 gi.require_version('Gtk', '4.0')
 import os
 import urllib.request
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, GLib
 from .automatic import AutomaticWindow
 
 RECIPES_REPO = "https://raw.githubusercontent.com/realvolk/ArtixForge-recipes/main"
 LIST_URL = f"{RECIPES_REPO}/.LIST"
 SECTION_CONFIG = "/etc/artix-poweruser/recipe-sections.conf"
+LOCAL_RECIPES_DIR = "/usr/share/artix-poweruser/recipes"
 
 class PowerUserWindow(AutomaticWindow):
     def __init__(self, state_file, state):
@@ -21,8 +22,11 @@ class PowerUserWindow(AutomaticWindow):
         super().__init__(state_file, state)
         self.window.set_title("Power User Installation")
         self.recipe_sections = self.load_sections()
+        self.all_recipes = []
         self.recipes = []
-        self.fetch_recipe_list()
+        self.fetch_all_recipe_list()
+        self.apply_section_filter()
+        self.ensure_recipes_downloaded()
         self.feature_flags_per_package = {}
 
         poweruser_page_specs = [
@@ -61,12 +65,6 @@ class PowerUserWindow(AutomaticWindow):
         self.stack.set_visible_child(self.pages[0])
         self._update_conditional_pages()
 
-    def _set_page_visible(self, page_idx, visible):
-        if page_idx is None or page_idx >= len(self.pages):
-            return
-        page = self.pages[page_idx]
-        page.set_visible(visible)
-
     def _on_package_toggled(self, check, pkg_name):
         if pkg_name == "linux":
             self._update_conditional_pages()
@@ -78,7 +76,8 @@ class PowerUserWindow(AutomaticWindow):
         sections = {sec for sec, cb in self.section_checkboxes.items() if cb.get_active()}
         self.recipe_sections = sections
         self.save_sections()
-        self.fetch_recipe_list()
+        self.apply_section_filter()
+        self.ensure_recipes_downloaded()
         self._rebuild_packages_page()
 
     def _update_conditional_pages(self):
@@ -118,23 +117,38 @@ class PowerUserWindow(AutomaticWindow):
         with open(SECTION_CONFIG, 'w') as f:
             f.write(f'GARTIX_SECTIONS="{" ".join(self.recipe_sections)}"\n')
 
-    def fetch_recipe_list(self):
+    def fetch_all_recipe_list(self):
         try:
             with urllib.request.urlopen(LIST_URL) as resp:
                 data = resp.read().decode('utf-8')
-                self.recipes = []
+                self.all_recipes = []
                 for line in data.strip().split('\n'):
                     if '|' in line:
-                        name, section, desc = line.split('|', 2)
-                        if section in self.recipe_sections:
-                            self.recipes.append((name, section, desc))
+                        parts = line.split('|', 2)
+                        if len(parts) >= 3:
+                            name, section, desc = parts
+                            self.all_recipes.append((name, section, desc))
         except Exception:
-            self.recipes = [("linux", "OFFICIAL/Base", "Kernel")]
+            self.all_recipes = [("linux", "OFFICIAL/Base", "Kernel")]
+
+    def apply_section_filter(self):
+        self.recipes = [(n, s, d) for n, s, d in self.all_recipes if s in self.recipe_sections]
+
+    def ensure_recipes_downloaded(self):
+        os.makedirs(LOCAL_RECIPES_DIR, exist_ok=True)
+        for name, section, desc in self.recipes:
+            path = os.path.join(LOCAL_RECIPES_DIR, f"{name}.sh")
+            if name == "template" or os.path.exists(path):
+                continue
+            url = f"{RECIPES_REPO}/{section}/{name}.sh"
+            try:
+                urllib.request.urlretrieve(url, path)
+            except Exception:
+                pass
 
     def _rebuild_packages_page(self):
         if not hasattr(self, 'packages_container'):
             return
-        # Remove all children (lol)
         while True:
             child = self.packages_container.get_first_child()
             if child is None:
@@ -142,7 +156,9 @@ class PowerUserWindow(AutomaticWindow):
             self.packages_container.remove(child)
         self.package_checkboxes = {}
         for name, section, desc in self.recipes:
-            check = Gtk.CheckButton(label=f"{name} [{section}] – {desc}")
+            label_text = f"{name} [{section}] – {desc}"
+            check = Gtk.CheckButton(label=label_text)
+            check.set_tooltip_text(f"Source: {RECIPES_REPO}/{section}/{name}.sh\n{desc}")
             self.packages_container.append(check)
             self.package_checkboxes[name] = check
             check.connect("toggled", self._on_package_toggled, name)
@@ -233,8 +249,9 @@ class PowerUserWindow(AutomaticWindow):
         label.set_markup('<span size="large" weight="bold">Recipe Sections</span>')
         box.append(label)
         desc = Gtk.Label()
-        desc.set_text("Select which recipe sections to include.")
+        desc.set_text("Select which recipe sections to include. Recipes are fetched from the community repository and downloaded automatically.")
         desc.set_justify(Gtk.Justification.CENTER)
+        desc.set_wrap(True)
         box.append(desc)
         self.section_checkboxes = {}
         sections = ["OFFICIAL/Base", "OFFICIAL/Other", "COMMUNITY/Base", "COMMUNITY/Other"]
@@ -259,6 +276,7 @@ class PowerUserWindow(AutomaticWindow):
         self.package_checkboxes = {}
         for name, section, desc in self.recipes:
             check = Gtk.CheckButton(label=f"{name} [{section}] – {desc}")
+            check.set_tooltip_text(f"Source: {RECIPES_REPO}/{section}/{name}.sh\n{desc}")
             self.packages_container.append(check)
             self.package_checkboxes[name] = check
             check.connect("toggled", self._on_package_toggled, name)
@@ -429,7 +447,8 @@ class PowerUserWindow(AutomaticWindow):
         url = self.new_url_entry.get_text().strip()
         desc = self.new_desc_entry.get_text().strip() or "Custom recipe"
         deps = self.new_deps_entry.get_text().strip()
-        recipe_path = f"/usr/share/artix-poweruser/recipes/{name}.sh"
+        recipe_path = f"{LOCAL_RECIPES_DIR}/{name}.sh"
+        os.makedirs(LOCAL_RECIPES_DIR, exist_ok=True)
         try:
             with open(recipe_path, 'w') as f:
                 f.write(f"""#!/usr/bin/env bash

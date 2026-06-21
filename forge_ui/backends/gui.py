@@ -320,6 +320,12 @@ class ProgressWindow(BaseWindow):
         scrolled.set_child(self.log_view)
         vbox.append(scrolled)
 
+        # Progress bar
+        self.progress_bar = Gtk.ProgressBar()
+        self.progress_bar.set_show_text(True)
+        self.progress_bar.set_fraction(0.0)
+        vbox.append(self.progress_bar)
+
         self.spinner = Gtk.Spinner()
         self.spinner.start()
         vbox.append(self.spinner)
@@ -364,23 +370,37 @@ class ProgressWindow(BaseWindow):
             text=True,
             bufsize=1,
         )
+        stage_progress = {
+            "preflight": 0.1, "storage": 0.25, "base": 0.4, "poweruser": 0.6,
+            "chroot": 0.75, "init": 0.85, "post": 0.95, "finalize": 1.0
+        }
+        current_progress = 0.0
         for line in self._proc.stdout:
             GLib.idle_add(self._append_log, line)
             if logfile:
                 with open(logfile, "a") as f:
                     f.write(line)
+            for stage, prog in stage_progress.items():
+                if f"stage_{stage}" in line or f"{stage} stage" in line:
+                    current_progress = max(current_progress, prog)
+                    GLib.idle_add(self.progress_bar.set_fraction, current_progress)
+                    break
         self._proc.wait()
         self.success = self._proc.returncode == 0
         GLib.idle_add(self._done)
 
     def _append_log(self, line):
-        clean = ''.join(c for c in line if c.isprintable() or c in '\n\r\t ')
+        clean = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', line)
+        clean = re.sub(r'\[[0-9;]*m', '', clean)
+        clean = re.sub(r'\[[0-9;]*K', '', clean)
+        clean = ''.join(c for c in clean if c.isprintable() or c in '\n\r\t ')
         buf = self.log_view.get_buffer()
         buf.insert(buf.get_end_iter(), clean)
         self.log_view.scroll_to_iter(buf.get_end_iter(), 0.0, False, 0.0, 0.0)
 
     def _done(self):
         self.spinner.stop()
+        self.progress_bar.set_fraction(1.0)
         self._finished = True
         self.window.destroy()
 
