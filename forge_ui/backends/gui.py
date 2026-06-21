@@ -390,7 +390,6 @@ class ProgressWindow(BaseWindow):
             text=True,
             bufsize=1,
             cwd=cwd,
-        )bufsize=1,
         )
         for line in self._proc.stdout:
             GLib.idle_add(self._append_log, line)
