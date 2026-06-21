@@ -239,8 +239,6 @@ class BaseWindow:
              "state": self.state},
             title_color=self.title_color, accent_color=self.accent_color
         )
-        if self.app:
-            self.app.add_window(progress.window)
         result = progress.run()
 
         if result.get("cancelled"):
