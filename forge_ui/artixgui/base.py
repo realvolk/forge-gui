@@ -4,7 +4,7 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 import os
 import subprocess
-from gi.repository import Gtk, Adw, Gdk, GLib, Pango
+from gi.repository import Gtk, Adw, Gdk, GLib
 from ..backends.gui import ProgressWindow
 from ..theme import get_colors, ACCENT_COLORS
 
@@ -15,8 +15,8 @@ class BaseWindow:
         self.state = state
         self.pages = []
         self.current_page = 0
-        self._passwords_valid = True
-        self._revealers = []
+        self._conditional_pages = {}
+        self._users_page = None
 
         title_color, accent_color = get_colors()
         self.title_color = title_color
@@ -24,7 +24,7 @@ class BaseWindow:
 
         self.window = Gtk.Window(title=title)
         self.window.set_default_size(680, 420)
-        self.window.connect("destroy", lambda *_: None)
+        self.window.connect("close-request", lambda *_: self._quit())
 
         self._apply_theme()
 
@@ -34,12 +34,30 @@ class BaseWindow:
         main_vbox.set_margin_start(10)
         main_vbox.set_margin_end(10)
 
+        # Header with logo and title
+        header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        header_box.set_halign(Gtk.Align.CENTER)
+        main_vbox.append(header_box)
+
+        logo_path = os.path.join(os.path.dirname(__file__), "media", "artix-logo.png")
+        has_logo = os.path.exists(logo_path)
+
+        if has_logo:
+            try:
+                logo = Gtk.Picture.new_for_filename(logo_path)
+                logo.set_size_request(48, 48)
+                logo.set_margin_end(10)
+                header_box.append(logo)
+            except Exception:
+                pass
+
         header = Gtk.Label()
         header.set_markup('<span size="large" weight="bold">ArtixForge Installer</span>')
-        main_vbox.append(header)
+        header_box.append(header)
 
         self.stack = Gtk.Stack()
         self.stack.set_transition_type(Gtk.StackTransitionType.SLIDE_LEFT_RIGHT)
+        self.stack.set_transition_duration(300)
         self.stack.set_vexpand(True)
         main_vbox.append(self.stack)
 
@@ -54,21 +72,21 @@ class BaseWindow:
 
         self.next_btn = Gtk.Button(label="Next")
         self.next_btn.connect("clicked", self.on_next)
+        self.next_btn.add_css_class("suggested-action")
         nav_box.append(self.next_btn)
 
         main_vbox.append(nav_box)
 
-        # Artix logo overlay
-        logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "media", "artix-logo.png")
-        if os.path.exists(logo_path):
+        # Background watermark + header logo
+        if has_logo:
             overlay = Gtk.Overlay()
             overlay.set_child(main_vbox)
-            logo = Gtk.Picture.new_for_filename(logo_path)
-            logo.set_opacity(0.4)
-            logo.set_halign(Gtk.Align.CENTER)
-            logo.set_valign(Gtk.Align.CENTER)
-            logo.set_can_shrink(True)
-            overlay.add_overlay(logo)
+            bg_logo = Gtk.Picture.new_for_filename(logo_path)
+            bg_logo.set_opacity(0.15)
+            bg_logo.set_halign(Gtk.Align.CENTER)
+            bg_logo.set_valign(Gtk.Align.CENTER)
+            bg_logo.set_can_shrink(True)
+            overlay.add_overlay(bg_logo)
             self.window.set_child(overlay)
         else:
             self.window.set_child(main_vbox)
@@ -91,19 +109,111 @@ class BaseWindow:
         except (ValueError, TypeError):
             pass
 
-    def on_bg_toggled(self, check):
-        self.state["GUI_BACKGROUND"] = "white" if check.get_active() else "black"
-        self._apply_theme()
-
-    def add_page(self, title, page):
+    def add_page(self, title, page, conditional=None):
+        page.set_visible(True)
         self.stack.add_titled(page, title, title)
         self.pages.append(page)
+        if conditional:
+            self._conditional_pages[title] = (len(self.pages) - 1, conditional)
+
+    def add_revealer_page(self, title, content, conditional=None):
+        revealer = Gtk.Revealer()
+        revealer.set_child(content)
+        revealer.set_transition_type(Gtk.RevealerTransitionType.SLIDE_DOWN)
+        revealer.set_transition_duration(300)
+        revealer.set_reveal_child(True)
+        self.add_page(title, revealer, conditional)
+
+    def _update_conditional_pages(self):
+        for title, (idx, condition) in self._conditional_pages.items():
+            visible = condition()
+            page = self.pages[idx]
+            if isinstance(page, Gtk.Revealer):
+                page.set_reveal_child(visible)
+            else:
+                page.set_visible(visible)
+        self.update_nav_buttons()
 
     def _set_page_visible(self, page_idx, visible):
-        """Show or hide a stack child."""
+        """Show or hide a stack child (used by PowerUserWindow)."""
         if page_idx is None or page_idx >= len(self.pages):
             return
         self.pages[page_idx].set_visible(visible)
+
+    def update_nav_buttons(self):
+        self.back_btn.set_sensitive(self.current_page > 0)
+        if self.current_page == len(self.pages) - 1:
+            self.next_btn.set_label("Install")
+        else:
+            self.next_btn.set_label("Next")
+
+    def on_back(self, widget):
+        if self.current_page > 0:
+            self.current_page -= 1
+            while self.current_page > 0:
+                page = self.pages[self.current_page]
+                if isinstance(page, Gtk.Revealer) and not page.get_reveal_child():
+                    self.current_page -= 1
+                elif not isinstance(page, Gtk.Revealer) and not page.get_visible():
+                    self.current_page -= 1
+                else:
+                    break
+            self._show_current_page()
+
+    def on_next(self, widget):
+        if self.current_page < len(self.pages) - 1:
+            if hasattr(self, '_users_page') and self.pages[self.current_page] is self._users_page:
+                if not self._validate_passwords():
+                    return
+            self.current_page += 1
+            while self.current_page < len(self.pages):
+                page = self.pages[self.current_page]
+                if isinstance(page, Gtk.Revealer) and not page.get_reveal_child():
+                    self.current_page += 1
+                elif not isinstance(page, Gtk.Revealer) and not page.get_visible():
+                    self.current_page += 1
+                else:
+                    break
+            if self.current_page >= len(self.pages):
+                self.current_page = len(self.pages) - 1
+            self._show_current_page()
+        else:
+            if not self._validate_passwords():
+                return
+            self.start_installation()
+
+    def _show_current_page(self):
+        self.stack.set_visible_child(self.pages[self.current_page])
+        self.update_nav_buttons()
+        if hasattr(self, 'update_summary') and self.pages[self.current_page] is self.pages[-1]:
+            self.update_summary()
+
+    def _validate_passwords(self):
+        if hasattr(self, 'user_pass_entry') and hasattr(self, 'user_confirm_entry'):
+            if self.user_pass_entry.get_text() != self.user_confirm_entry.get_text():
+                dialog = Gtk.MessageDialog(
+                    transient_for=self.window,
+                    modal=True,
+                    message_type=Gtk.MessageType.WARNING,
+                    buttons=Gtk.ButtonsType.OK,
+                    text="User passwords do not match. Please correct them before continuing."
+                )
+                dialog.connect("response", lambda d, r: d.destroy())
+                dialog.show()
+                return False
+        if hasattr(self, 'root_pass_entry') and hasattr(self, 'root_confirm_entry'):
+            if self.root_pass_entry.get_text() != self.root_confirm_entry.get_text():
+                dialog = Gtk.MessageDialog(
+                    transient_for=self.window,
+                    modal=True,
+                    message_type=Gtk.MessageType.WARNING,
+                    buttons=Gtk.ButtonsType.OK,
+                    text="Root passwords do not match. Please correct them before continuing."
+                )
+                dialog.connect("response", lambda d, r: d.destroy())
+                dialog.show()
+                return False
+        return True
 
     def save_state(self):
         try:
@@ -116,22 +226,26 @@ class BaseWindow:
 
     def run_installer(self):
         self.save_state()
+        # Three levels up from base.py -> forge_ui/artixgui/ -> root of the repo
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        install_script = os.path.join(base_dir, "..", "install")
+        install_script = os.path.join(base_dir, "install")
 
         self.window.hide()
 
         progress = ProgressWindow(
-            {"title": "Installing ArtixForge", 
+            {"title": "Installing ArtixForge",
              "command": [install_script, "--non-interactive"],
              "state": self.state},
             title_color=self.title_color, accent_color=self.accent_color
         )
+        app = Gtk.Application.get_default()
+        if app:
+            app.add_window(progress.window)
         result = progress.run()
 
         if result.get("cancelled"):
             dialog = Gtk.MessageDialog(
-                transient_for=self.window,
+                transient_for=None,
                 modal=True,
                 message_type=Gtk.MessageType.WARNING,
                 buttons=Gtk.ButtonsType.OK,
@@ -139,7 +253,7 @@ class BaseWindow:
             )
         elif result.get("result") == "success":
             dialog = Gtk.MessageDialog(
-                transient_for=self.window,
+                transient_for=None,
                 modal=True,
                 message_type=Gtk.MessageType.INFO,
                 buttons=Gtk.ButtonsType.OK,
@@ -155,96 +269,25 @@ class BaseWindow:
             except Exception:
                 log_tail = "(could not read log)"
             dialog = Gtk.MessageDialog(
-                transient_for=self.window,
+                transient_for=None,
                 modal=True,
                 message_type=Gtk.MessageType.ERROR,
                 buttons=Gtk.ButtonsType.OK,
                 text=f"Installation failed.\n\nLast log lines:\n{log_tail}"
             )
+        dialog.connect("response", lambda d, r: d.destroy())
         dialog.show()
         dialog_loop = GLib.MainLoop()
         dialog.connect("response", lambda d, r: dialog_loop.quit())
         dialog_loop.run()
-        dialog.destroy()
         self._quit()
-
-    def _validate_passwords(self):
-        if hasattr(self, 'user_pass_entry') and hasattr(self, 'user_confirm_entry'):
-            if self.user_pass_entry.get_text() != self.user_confirm_entry.get_text():
-                dialog = Gtk.MessageDialog(
-                    transient_for=self.window,
-                    modal=True,
-                    message_type=Gtk.MessageType.WARNING,
-                    buttons=Gtk.ButtonsType.OK,
-                    text="User passwords do not match. Please correct them before continuing."
-                )
-                dialog.show()
-                dialog.connect("response", lambda d, r: d.destroy())
-                return False
-        if hasattr(self, 'root_pass_entry') and hasattr(self, 'root_confirm_entry'):
-            if self.root_pass_entry.get_text() != self.root_confirm_entry.get_text():
-                dialog = Gtk.MessageDialog(
-                    transient_for=self.window,
-                    modal=True,
-                    message_type=Gtk.MessageType.WARNING,
-                    buttons=Gtk.ButtonsType.OK,
-                    text="Root passwords do not match. Please correct them before continuing."
-                )
-                dialog.show()
-                dialog.connect("response", lambda d, r: d.destroy())
-                return False
-        return True
-
-    def on_back(self, widget):
-        if self.current_page > 0:
-            self.current_page -= 1
-            while self.current_page > 0:
-                page = self.pages[self.current_page]
-                if isinstance(page, Gtk.Revealer) and not page.get_reveal_child():
-                    self.current_page -= 1
-                elif not isinstance(page, Gtk.Revealer) and not page.get_visible():
-                    self.current_page -= 1
-                else:
-                    break
-            self.stack.set_visible_child(self.pages[self.current_page])
-            self.update_nav_buttons()
-
-    def on_next(self, widget):
-        if self.current_page < len(self.pages) - 1:
-            if hasattr(self, 'user_pass_entry') and self.pages[self.current_page] is getattr(self, '_users_page', None):
-                if not self._validate_passwords():
-                    return
-            self.current_page += 1
-            while self.current_page < len(self.pages):
-                page = self.pages[self.current_page]
-                if isinstance(page, Gtk.Revealer) and not page.get_reveal_child():
-                    self.current_page += 1
-                elif not isinstance(page, Gtk.Revealer) and not page.get_visible():
-                    self.current_page += 1
-                else:
-                    break
-            if self.current_page >= len(self.pages):
-                self.current_page = len(self.pages) - 1
-            self.stack.set_visible_child(self.pages[self.current_page])
-            self.update_nav_buttons()
-        else:
-            if not self._validate_passwords():
-                return
-            self.start_installation()
-
-    def update_nav_buttons(self):
-        self.back_btn.set_sensitive(self.current_page > 0)
-        if self.current_page == len(self.pages) - 1:
-            self.next_btn.set_label("Install")
-        else:
-            self.next_btn.set_label("Next")
 
     def start_installation(self):
         self.run_installer()
 
     def run(self):
-        self.stack.set_visible_child(self.pages[0])
-        self.update_nav_buttons()
+        self._update_conditional_pages()
+        self._show_current_page()
         self.window.show()
         self._loop = GLib.MainLoop()
         self.window.connect("destroy", lambda *_: self._loop.quit())
@@ -303,9 +346,8 @@ class CommonPages:
         label.set_markup('<span size="large" weight="bold">Select Theme</span>')
         box.append(label)
 
-        themes = ["Gentoo", "Artix", "Jet Black", "Mono", "Retro"]
-        theme_list = Gtk.StringList.new(themes)
-        self.theme_combo = Gtk.DropDown.new(theme_list)
+        themes = ["ArtixForge", "Artix", "Jet Black", "Mono", "Retro"]
+        self.theme_combo = Gtk.DropDown.new(Gtk.StringList.new(themes))
         self.theme_combo.set_selected(0)
         box.append(self.theme_combo)
 
@@ -318,22 +360,16 @@ class CommonPages:
             if 0 <= idx < len(themes):
                 theme = themes[idx]
                 colors = {
-                    "Gentoo": ("#c678dd", "#98c379"),
-                    "Artix": ("#61afef", "#56b6c2"),
-                    "Jet Black": ("#928374", "#e06c75"),
-                    "Mono": ("#a89984", "#ffffff"),
-                    "Retro": ("#d19a66", "#e5c07b"),
+                    "ArtixForge": ("#c678dd", 34),
+                    "Artix": ("#61afef", 117),
+                    "Jet Black": ("#928374", 196),
+                    "Mono": ("#a89984", 255),
+                    "Retro": ("#d19a66", 11),
                 }
-                c, _ = colors.get(theme, ("#c678dd", "#98c379"))
-                preview.set_markup(f'<span foreground="{c}" weight="bold">This is how titles will look</span>')
-                # Apply accent immediately to GUI
+                title_color, accent_code = colors.get(theme, ("#c678dd", 34))
+                preview.set_markup(f'<span foreground="{title_color}" weight="bold">This is how titles will look</span>')
                 style_manager = Adw.StyleManager.get_default()
-                accent_map = {
-                    "Gentoo": 212, "Artix": 39, "Jet Black": 245,
-                    "Mono": 250, "Retro": 3
-                }
-                tc = accent_map.get(theme, 212)
-                accent_tuple = ACCENT_COLORS.get(tc)
+                accent_tuple = ACCENT_COLORS.get(accent_code)
                 if accent_tuple:
                     style_manager.set_accent_color(Adw.AccentColor(*accent_tuple))
 
@@ -346,33 +382,30 @@ class CommonPages:
 
         return box
 
+    def on_bg_toggled(self, check):
+        self.state["GUI_BACKGROUND"] = "white" if check.get_active() else "black"
+        self._apply_theme()
+
     def create_filesystem_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
 
         label = Gtk.Label(label="Select filesystem:", xalign=0)
         box.append(label)
 
-        fs_list = Gtk.StringList.new(["ext4", "btrfs", "xfs", "f2fs"])
-        self.fs_combo = Gtk.DropDown.new(fs_list)
+        self.fs_combo = Gtk.DropDown.new(Gtk.StringList.new(["ext4", "btrfs", "xfs", "f2fs"]))
         box.append(self.fs_combo)
 
         self.btrfs_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         btrfs_label = Gtk.Label(label="BTRFS Layout:", xalign=0)
         self.btrfs_box.append(btrfs_label)
-
-        btrfs_list = Gtk.StringList.new(["standard", "flat", "snapshot"])
-        self.btrfs_combo = Gtk.DropDown.new(btrfs_list)
+        self.btrfs_combo = Gtk.DropDown.new(Gtk.StringList.new(["standard", "flat", "snapshot"]))
         self.btrfs_box.append(self.btrfs_combo)
-
         box.append(self.btrfs_box)
         self.btrfs_box.set_visible(False)
 
         def on_fs_changed(dropdown, _param):
             idx = dropdown.get_selected()
-            if idx == 1:
-                self.btrfs_box.set_visible(True)
-            else:
-                self.btrfs_box.set_visible(False)
+            self.btrfs_box.set_visible(idx == 1)
 
         self.fs_combo.connect("notify::selected", on_fs_changed)
         return box
@@ -382,9 +415,7 @@ class CommonPages:
 
         label = Gtk.Label(label="Select bootloader:", xalign=0)
         box.append(label)
-
-        bl_list = Gtk.StringList.new(["grub", "refind", "efistub", "limine"])
-        self.bl_combo = Gtk.DropDown.new(bl_list)
+        self.bl_combo = Gtk.DropDown.new(Gtk.StringList.new(["grub", "refind", "efistub", "limine"]))
         box.append(self.bl_combo)
 
         self.uki_check = Gtk.CheckButton(label="Generate UKI (Unified Kernel Image)")
@@ -397,20 +428,16 @@ class CommonPages:
 
         label = Gtk.Label(label="Select kernel:", xalign=0)
         box.append(label)
-
-        kernel_list = Gtk.StringList.new([
+        self.kernel_combo = Gtk.DropDown.new(Gtk.StringList.new([
             "linux", "linux-zen", "linux-lts", "linux-hardened",
             "linux-libre", "linux-cachyos-bore", "linux-bazzite-bin",
             "xanmod", "tkg"
-        ])
-        self.kernel_combo = Gtk.DropDown.new(kernel_list)
+        ]))
         box.append(self.kernel_combo)
 
         microcode_label = Gtk.Label(label="Microcode:", xalign=0)
         box.append(microcode_label)
-
-        ucode_list = Gtk.StringList.new(["auto", "intel-ucode", "amd-ucode", "none"])
-        self.microcode_combo = Gtk.DropDown.new(ucode_list)
+        self.microcode_combo = Gtk.DropDown.new(Gtk.StringList.new(["auto", "intel-ucode", "amd-ucode", "none"]))
         box.append(self.microcode_combo)
 
         return box
@@ -420,9 +447,7 @@ class CommonPages:
 
         label = Gtk.Label(label="Select init system:", xalign=0)
         box.append(label)
-
-        init_list = Gtk.StringList.new(["openrc", "runit", "dinit", "s6"])
-        self.init_combo = Gtk.DropDown.new(init_list)
+        self.init_combo = Gtk.DropDown.new(Gtk.StringList.new(["openrc", "runit", "dinit", "s6"]))
         box.append(self.init_combo)
 
         return box
@@ -432,24 +457,20 @@ class CommonPages:
 
         label = Gtk.Label(label="Select desktop environment / window manager:", xalign=0)
         box.append(label)
-
-        de_list = Gtk.StringList.new([
+        self.de_combo = Gtk.DropDown.new(Gtk.StringList.new([
             "kde", "sonicde", "xfce4", "lxqt", "lxde", "hyprland", "sway",
             "niri", "i3wm", "dwm", "vxwm", "icewm", "mango", "none"
-        ])
-        self.de_combo = Gtk.DropDown.new(de_list)
+        ]))
         box.append(self.de_combo)
 
         xstack_label = Gtk.Label(label="Display stack:", xalign=0)
         box.append(xstack_label)
-        xstack_list = Gtk.StringList.new(["xlibre", "xorg"])
-        self.xstack_combo = Gtk.DropDown.new(xstack_list)
+        self.xstack_combo = Gtk.DropDown.new(Gtk.StringList.new(["xlibre", "xorg"]))
         box.append(self.xstack_combo)
 
         dm_label = Gtk.Label(label="Display manager:", xalign=0)
         box.append(dm_label)
-        dm_list = Gtk.StringList.new(["none", "lightdm", "sddm", "soniclogin"])
-        self.dm_combo = Gtk.DropDown.new(dm_list)
+        self.dm_combo = Gtk.DropDown.new(Gtk.StringList.new(["none", "lightdm", "sddm", "soniclogin"]))
         box.append(self.dm_combo)
 
         return box
@@ -459,14 +480,12 @@ class CommonPages:
 
         net_label = Gtk.Label(label="Network stack:", xalign=0)
         box.append(net_label)
-        net_list = Gtk.StringList.new(["networkmanager", "dhcpcd+iwd", "connman", "none"])
-        self.net_combo = Gtk.DropDown.new(net_list)
+        self.net_combo = Gtk.DropDown.new(Gtk.StringList.new(["networkmanager", "dhcpcd+iwd", "connman", "none"]))
         box.append(self.net_combo)
 
         audio_label = Gtk.Label(label="Audio stack:", xalign=0)
         box.append(audio_label)
-        audio_list = Gtk.StringList.new(["pipewire", "pulseaudio", "none"])
-        self.audio_combo = Gtk.DropDown.new(audio_list)
+        self.audio_combo = Gtk.DropDown.new(Gtk.StringList.new(["pipewire", "pulseaudio", "none"]))
         box.append(self.audio_combo)
 
         return box
@@ -476,8 +495,7 @@ class CommonPages:
 
         shell_label = Gtk.Label(label="Select user shell:", xalign=0)
         box.append(shell_label)
-        shell_list = Gtk.StringList.new(["bash", "zsh", "fish"])
-        self.shell_combo = Gtk.DropDown.new(shell_list)
+        self.shell_combo = Gtk.DropDown.new(Gtk.StringList.new(["bash", "zsh", "fish"]))
         box.append(self.shell_combo)
 
         extras_label = Gtk.Label(label="Extra packages:", xalign=0)
@@ -485,9 +503,6 @@ class CommonPages:
 
         notebook = Gtk.Notebook()
         notebook.set_vexpand(True)
-
-        self.__extras_checkboxes = {}
-        self.__extras_notebook = notebook
 
         categories = {
             "System Tools": ["git", "flatpak", "fastfetch", "firewalld", "bluez", "zram-tools", "usb_modeswitch"],
@@ -499,6 +514,9 @@ class CommonPages:
             "Monitoring": ["btop", "htop", "nvtop"],
             "Media": ["mpv", "feh"],
         }
+
+        self.__extras_checkboxes = {}
+        self.__extras_notebook = notebook
 
         for cat_name, pkgs in categories.items():
             page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
@@ -646,8 +664,7 @@ class CommonPages:
 
         priv_label = Gtk.Label(label="Privilege escalation:", xalign=0)
         box.append(priv_label)
-        priv_list = Gtk.StringList.new(["sudo", "doas"])
-        self.priv_combo = Gtk.DropDown.new(priv_list)
+        self.priv_combo = Gtk.DropDown.new(Gtk.StringList.new(["sudo", "doas"]))
         box.append(self.priv_combo)
 
         self.arch_repos_check = Gtk.CheckButton(label="Enable Arch Linux repositories")
@@ -665,8 +682,7 @@ class CommonPages:
 
         coreutils_label = Gtk.Label(label="Coreutils:", xalign=0)
         self.poweruser_box.append(coreutils_label)
-        cu_list = Gtk.StringList.new(["gnu", "busybox", "uutils", "artix", "custom"])
-        self.coreutils_combo = Gtk.DropDown.new(cu_list)
+        self.coreutils_combo = Gtk.DropDown.new(Gtk.StringList.new(["gnu", "busybox", "uutils", "artix", "custom"]))
         self.poweruser_box.append(self.coreutils_combo)
 
         keep_binary_label = Gtk.Label(label="Keep binary kernel as fallback:", xalign=0)
@@ -699,6 +715,7 @@ class CommonPages:
 
     def on_poweruser_toggled(self, check):
         self.poweruser_box.set_visible(check.get_active())
+        self._update_conditional_pages()
 
     def create_summary_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
@@ -724,7 +741,7 @@ class CommonPages:
             self.update_summary()
 
     def update_summary(self):
-        self.collect_state()
+        self.collect_state_common()
         summary = "Installation Summary:\n\n"
         for key, value in sorted(self.state.items()):
             if key not in ['LUKS_PASS', 'USER_PASS', 'ROOT_PASS']:
@@ -745,12 +762,12 @@ class CommonPages:
             return False
 
         if hasattr(self, 'theme_combo'):
-            themes = ["Gentoo", "Artix", "Jet Black", "Mono", "Retro"]
+            themes = ["ArtixForge", "Artix", "Jet Black", "Mono", "Retro"]
             idx = self.theme_combo.get_selected()
             if 0 <= idx < len(themes):
                 theme = themes[idx]
                 colors = {
-                    "Gentoo": ("212", "34"),
+                    "ArtixForge": ("212", "34"),
                     "Artix": ("39", "117"),
                     "Jet Black": ("245", "196"),
                     "Mono": ("250", "255"),

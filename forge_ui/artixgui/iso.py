@@ -276,10 +276,10 @@ class ISOBuilderWindow(BaseWindow):
         self.collect_state()
         self.save_state()
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        install_script = os.path.join(base_dir, "..", "install")
+        install_script = os.path.join(base_dir, "install")
         self.window.hide()
         progress = ProgressWindow(
-            {"title": f"Building {self.boot_mode} ISO", "command": ["sudo", install_script, "--non-interactive"]},
+            {"title": f"Building {self.boot_mode} ISO", "command": [install_script, "--non-interactive"]},
             title_color=self.title_color, accent_color=self.accent_color
         )
         result = progress.run()

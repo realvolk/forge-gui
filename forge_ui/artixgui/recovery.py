@@ -136,10 +136,10 @@ class RecoveryWindow(BaseWindow):
         self.collect_state()
         self.save_state()
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        install_script = os.path.join(base_dir, "..", "install")
+        install_script = os.path.join(base_dir, "install")
         self.window.hide()
         progress = ProgressWindow(
-            {"title": "Recovery Mode", "command": ["sudo", install_script, "--non-interactive"]},
+            {"title": "Recovery Mode", "command": [install_script, "--non-interactive"]},
             title_color=self.title_color, accent_color=self.accent_color
         )
         result = progress.run()

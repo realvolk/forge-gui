@@ -238,10 +238,10 @@ echo "WM_DE=$(state_get WM_DE none)"
         self.collect_state()
         self.save_state()
         base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        install_script = os.path.join(base_dir, "..", "install")
+        install_script = os.path.join(base_dir, "install")
         self.window.hide()
         progress = ProgressWindow(
-            {"title": "System Migration", "command": ["sudo", install_script, "--non-interactive"]},
+            {"title": "System Migration", "command": [install_script, "--non-interactive"]},
             title_color=self.title_color, accent_color=self.accent_color
         )
         result = progress.run()
