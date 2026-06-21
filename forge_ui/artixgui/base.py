@@ -228,7 +228,7 @@ class BaseWindow:
 
     def run_installer(self):
         self.save_state()
-        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
         install_script = os.path.join(base_dir, "install")
 
         self.window.hide()
