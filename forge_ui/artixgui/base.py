@@ -480,7 +480,7 @@ class CommonPages:
             except Exception:
                 pass
 
-        search_entry.connect("search-changed", on_search_changed)
+        search_entry.connect("changed", on_search_changed)
         notebook.append_page(search_box, Gtk.Label(label="Search"))
 
         box.append(notebook)

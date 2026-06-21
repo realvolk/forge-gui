@@ -7,7 +7,7 @@ import sys
 import subprocess
 import threading
 import re
-from gi.repository import Gtk, GLib, Adw, Pango
+from gi.repository import Gtk, GLib, Adw, Gdk, Pango
 
 
 class BaseWindow:
