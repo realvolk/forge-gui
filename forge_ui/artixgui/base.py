@@ -236,7 +236,8 @@ class BaseWindow:
         progress = ProgressWindow(
             {"title": "Installing ArtixForge",
              "command": [install_script, "--non-interactive"],
-             "state": self.state},
+             "state": self.state,
+             "cwd": base_dir},
             title_color=self.title_color, accent_color=self.accent_color
         )
         result = progress.run()

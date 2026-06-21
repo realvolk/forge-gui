@@ -382,12 +382,15 @@ class ProgressWindow(BaseWindow):
         stage_match = {msg: prog for msg, prog in stages}
         current = 0.0
         
+        cwd = self.data.get("cwd")
         self._proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             text=True,
             bufsize=1,
+            cwd=cwd,
+        )bufsize=1,
         )
         for line in self._proc.stdout:
             GLib.idle_add(self._append_log, line)
