@@ -122,7 +122,9 @@ class BaseWindow:
         self.window.hide()
 
         progress = ProgressWindow(
-            {"title": "Installing ArtixForge", "command": [install_script, "--non-interactive"]},
+            {"title": "Installing ArtixForge", 
+             "command": [install_script, "--non-interactive"],
+             "state": self.state},
             title_color=self.title_color, accent_color=self.accent_color
         )
         result = progress.run()

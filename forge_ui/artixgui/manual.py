@@ -32,7 +32,10 @@ class ManualWindow(AutomaticWindow):
         disk_names = []
         for line in result.stdout.strip().split('\n'):
             if line.strip():
-                disk_names.append(line.split(' ', 1)[0])
+                name = line.split(' ', 1)[0]
+                if '/dev/loop' in name or '/dev/sr' in name:
+                    continue
+                disk_names.append(name)
         if disk_names:
             disk_list = Gtk.StringList.new(disk_names)
         self.disk_combo = Gtk.DropDown.new(disk_list)

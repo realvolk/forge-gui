@@ -362,28 +362,34 @@ class ProgressWindow(BaseWindow):
 
     def _run_command(self):
         cmd = self.data.get("command", [])
-        logfile = self.data.get("logfile")
-        self._proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-        )
-        stage_progress = {
-            "preflight": 0.1, "storage": 0.25, "base": 0.4, "poweruser": 0.6,
-            "chroot": 0.75, "init": 0.85, "post": 0.95, "finalize": 1.0
-        }
-        current_progress = 0.0
+        state = self.data.get("state", {})
+        
+        stages = [
+            ("preflight", "Preflight dependencies installed", 0.05),
+            ("storage", "Mount setup completed", 0.10),
+            ("partition", "Partitioning complete", 0.15),
+            ("filesystem", "Filesystem creation complete", 0.20),
+            ("base", "Base system installation complete", 0.35),
+        ]
+        if state.get("POWER_USER") == "yes":
+            stages.append(("poweruser", "All source packages built and installed", 0.55))
+        stages += [
+            ("chroot", "Bootloader setup complete", 0.55 if state.get("POWER_USER") != "yes" else 0.70),
+            ("init", "BusyBox init configuration complete", 0.60 if state.get("POWER_USER") != "yes" else 0.75),
+            ("post", "Post-install configuration complete", 0.85),
+            ("finalize", "Artix installation completed successfully", 0.95),
+        ]
+        
+        stage_match = {msg: prog for _, msg, prog in stages}
+        current = 0.0
+        
+        self._proc = subprocess.Popen(cmd, ...)
         for line in self._proc.stdout:
             GLib.idle_add(self._append_log, line)
-            if logfile:
-                with open(logfile, "a") as f:
-                    f.write(line)
-            for stage, prog in stage_progress.items():
-                if f"stage_{stage}" in line or f"{stage} stage" in line:
-                    current_progress = max(current_progress, prog)
-                    GLib.idle_add(self.progress_bar.set_fraction, current_progress)
+            for msg, prog in stage_match.items():
+                if msg in line:
+                    current = max(current, prog)
+                    GLib.idle_add(self.progress_bar.set_fraction, current)
                     break
         self._proc.wait()
         self.success = self._proc.returncode == 0

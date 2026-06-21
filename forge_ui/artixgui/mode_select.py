@@ -85,6 +85,12 @@ class ModeSelectApp(Gtk.Application):
 
     def _launch_config(self, chosen):
         state = {}
+        preserve_modes = ["Resume Installation", "System Recovery", "System Migration"]
+        if chosen not in preserve_modes:
+            if os.path.exists(self.state_file):
+                os.remove(self.state_file)
+            os.makedirs(os.path.dirname(self.state_file), exist_ok=True)
+        
         if chosen == "Resume Installation":
             if os.path.exists(self.state_file):
                 with open(self.state_file, 'r') as f:
