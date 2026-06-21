@@ -188,6 +188,8 @@ class ISOBuilderWindow(BaseWindow):
         self.output_entry = Gtk.Entry()
         self.output_entry.set_text(os.path.expanduser("~/ArtixForge-ISO"))
         box.append(self.output_entry)
+        self.arch_repos_check = Gtk.CheckButton(label="Include Arch Linux repositories in the ISO")
+        box.append(self.arch_repos_check)
         return box
 
     def create_target_config_page(self):
@@ -265,6 +267,7 @@ class ISOBuilderWindow(BaseWindow):
         self.state['GUI_MODE'] = 'yes'
         self.state['ALLOW_OFFLINE'] = self.offline
         self.state['ISO_OUTPUT_DIR'] = self.output_entry.get_text()
+        self.state['ISO_ARCH_REPOS'] = "yes" if self.arch_repos_check.get_active() else "no"
 
         if self.offline == "yes":
             self.state['TARGET_INIT'] = self._get_combo(self.target_init_combo, ["openrc", "runit", "dinit", "s6"])

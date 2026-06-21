@@ -63,6 +63,8 @@ class AutomaticWindow(BaseWindow, CommonPages):
         self.luks_confirm_entry = Gtk.PasswordEntry()
         self.luks_confirm_entry.set_show_peek_icon(False)
         self.luks_box.append(self.luks_confirm_entry)
+        self.keyfile_check = Gtk.CheckButton(label="Use keyfile (avoids double password prompt)")
+        self.luks_box.append(self.keyfile_check)
         box.append(self.luks_box)
         self.luks_box.set_visible(False)
         self.luks_check.connect("toggled", self.on_luks_toggled)
@@ -109,6 +111,8 @@ class AutomaticWindow(BaseWindow, CommonPages):
             self.state['USE_LUKS'] = "yes" if self.luks_check.get_active() else "no"
             if hasattr(self, 'luks_pass_entry') and self.luks_check.get_active():
                 self.state['LUKS_PASS'] = self.luks_pass_entry.get_text()
+            if hasattr(self, 'keyfile_check') and self.luks_check.get_active():
+                self.state['LUKS_KEYFILE'] = "yes" if self.keyfile_check.get_active() else "no"
 
         if hasattr(self, 'lvm_check'):
             self.state['USE_LVM'] = "yes" if self.lvm_check.get_active() else "no"

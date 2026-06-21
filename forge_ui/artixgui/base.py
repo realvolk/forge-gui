@@ -4,6 +4,7 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 import os
 import subprocess
+import hashlib
 from gi.repository import Gtk, Adw, Gdk, GLib
 from ..backends.gui import ProgressWindow
 from ..theme import get_colors, ACCENT_COLORS
@@ -19,6 +20,7 @@ class BaseWindow:
         self._users_page = None
 
         self.app = app or Gtk.Application.get_default()
+        self.artix_boot_mode = os.environ.get("ARTIX_BOOT_MODE", "uefi")
 
         title_color, accent_color = get_colors()
         self.title_color = title_color
@@ -36,7 +38,6 @@ class BaseWindow:
         main_vbox.set_margin_start(10)
         main_vbox.set_margin_end(10)
 
-        # Header with logo and title
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
         header_box.set_halign(Gtk.Align.CENTER)
         main_vbox.append(header_box)
@@ -79,7 +80,6 @@ class BaseWindow:
 
         main_vbox.append(nav_box)
 
-        # Background watermark + header logo
         if has_logo:
             overlay = Gtk.Overlay()
             overlay.set_child(main_vbox)
@@ -111,6 +111,10 @@ class BaseWindow:
         except (ValueError, TypeError):
             pass
 
+    def on_bg_toggled(self, check):
+        self.state["GUI_BACKGROUND"] = "white" if check.get_active() else "black"
+        self._apply_theme()
+
     def add_page(self, title, page, conditional=None):
         page.set_visible(True)
         self.stack.add_titled(page, title, title)
@@ -137,7 +141,6 @@ class BaseWindow:
         self.update_nav_buttons()
 
     def _set_page_visible(self, page_idx, visible):
-        """Show or hide a stack child (used by PowerUserWindow)."""
         if page_idx is None or page_idx >= len(self.pages):
             return
         self.pages[page_idx].set_visible(visible)
@@ -240,6 +243,8 @@ class BaseWindow:
              "cwd": base_dir},
             title_color=self.title_color, accent_color=self.accent_color
         )
+        if self.app:
+            self.app.add_window(progress.window)
         result = progress.run()
 
         if result.get("cancelled"):
@@ -381,10 +386,6 @@ class CommonPages:
 
         return box
 
-    def on_bg_toggled(self, check):
-        self.state["GUI_BACKGROUND"] = "white" if check.get_active() else "black"
-        self._apply_theme()
-
     def create_filesystem_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
 
@@ -414,10 +415,17 @@ class CommonPages:
 
         label = Gtk.Label(label="Select bootloader:", xalign=0)
         box.append(label)
-        self.bl_combo = Gtk.DropDown.new(Gtk.StringList.new(["grub", "refind", "efistub", "limine"]))
+
+        if self.artix_boot_mode == "bios":
+            bl_list = Gtk.StringList.new(["grub"])
+        else:
+            bl_list = Gtk.StringList.new(["grub", "refind", "efistub", "limine"])
+        self.bl_combo = Gtk.DropDown.new(bl_list)
         box.append(self.bl_combo)
 
         self.uki_check = Gtk.CheckButton(label="Generate UKI (Unified Kernel Image)")
+        if self.artix_boot_mode == "bios":
+            self.uki_check.set_visible(False)
         box.append(self.uki_check)
 
         return box
@@ -427,6 +435,7 @@ class CommonPages:
 
         label = Gtk.Label(label="Select kernel:", xalign=0)
         box.append(label)
+
         self.kernel_combo = Gtk.DropDown.new(Gtk.StringList.new([
             "linux", "linux-zen", "linux-lts", "linux-hardened",
             "linux-libre", "linux-cachyos-bore", "linux-bazzite-bin",
@@ -436,6 +445,7 @@ class CommonPages:
 
         microcode_label = Gtk.Label(label="Microcode:", xalign=0)
         box.append(microcode_label)
+
         self.microcode_combo = Gtk.DropDown.new(Gtk.StringList.new(["auto", "intel-ucode", "amd-ucode", "none"]))
         box.append(self.microcode_combo)
 
@@ -446,6 +456,7 @@ class CommonPages:
 
         label = Gtk.Label(label="Select init system:", xalign=0)
         box.append(label)
+
         self.init_combo = Gtk.DropDown.new(Gtk.StringList.new(["openrc", "runit", "dinit", "s6"]))
         box.append(self.init_combo)
 
@@ -456,6 +467,7 @@ class CommonPages:
 
         label = Gtk.Label(label="Select desktop environment / window manager:", xalign=0)
         box.append(label)
+
         self.de_combo = Gtk.DropDown.new(Gtk.StringList.new([
             "kde", "sonicde", "xfce4", "lxqt", "lxde", "hyprland", "sway",
             "niri", "i3wm", "dwm", "vxwm", "icewm", "mango", "none"
@@ -503,6 +515,9 @@ class CommonPages:
         notebook = Gtk.Notebook()
         notebook.set_vexpand(True)
 
+        self.__extras_checkboxes = {}
+        self.__extras_notebook = notebook
+
         categories = {
             "System Tools": ["git", "flatpak", "fastfetch", "firewalld", "bluez", "zram-tools", "usb_modeswitch"],
             "Editors": ["nano", "vim", "neovim", "micro", "helix"],
@@ -513,9 +528,6 @@ class CommonPages:
             "Monitoring": ["btop", "htop", "nvtop"],
             "Media": ["mpv", "feh"],
         }
-
-        self.__extras_checkboxes = {}
-        self.__extras_notebook = notebook
 
         for cat_name, pkgs in categories.items():
             page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
@@ -533,7 +545,6 @@ class CommonPages:
 
             notebook.append_page(page_box, Gtk.Label(label=cat_name))
 
-        # Search tab
         search_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
         search_box.set_margin_start(10)
         search_box.set_margin_top(10)
@@ -792,7 +803,7 @@ class CommonPages:
                 self.state['BTRFS_LAYOUT'] = btrfs_values[idx]
 
         if hasattr(self, 'bl_combo'):
-            bl_values = ["grub", "refind", "efistub", "limine"]
+            bl_values = ["grub"] if self.artix_boot_mode == "bios" else ["grub", "refind", "efistub", "limine"]
             idx = self.bl_combo.get_selected()
             if 0 <= idx < len(bl_values):
                 self.state['BOOTLOADER'] = bl_values[idx]
@@ -876,7 +887,7 @@ class CommonPages:
             self.state['KEYMAP'] = self.keymap_entry.get_text()
         if hasattr(self, 'username_entry'):
             self.state['USER_NAME'] = self.username_entry.get_text()
-        import hashlib, subprocess
+
         if hasattr(self, 'user_pass_entry'):
             raw = self.user_pass_entry.get_text()
             if raw:
@@ -914,5 +925,6 @@ class CommonPages:
                 selected = [cb.get_label() for cb in self.poweruser_packages if cb.get_active()]
                 self.state['POWERUSER_PACKAGES'] = " ".join(selected)
 
+        self.state['ARTIX_BOOT_MODE'] = self.artix_boot_mode
         self.state['GUI_MODE'] = "yes"
         return True
