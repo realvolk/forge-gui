@@ -38,11 +38,8 @@ class ResumeWindow(BaseWindow):
         return box
 
     def run(self):
-        # Run the window, then update the summary after it's shown
-        result = super().run()
-        # Update summary after the window is fully built
         self.update_summary()
-        return result
+        return super().run()
 
     def update_summary(self):
         """Display the saved configuration from state."""
