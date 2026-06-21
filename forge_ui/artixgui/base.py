@@ -875,10 +875,17 @@ class CommonPages:
             self.state['KEYMAP'] = self.keymap_entry.get_text()
         if hasattr(self, 'username_entry'):
             self.state['USER_NAME'] = self.username_entry.get_text()
+        import hashlib, subprocess
         if hasattr(self, 'user_pass_entry'):
-            self.state['USER_PASS'] = self.user_pass_entry.get_text()
+            raw = self.user_pass_entry.get_text()
+            if raw:
+                result = subprocess.run(['openssl', 'passwd', '-6', raw], capture_output=True, text=True)
+                self.state['USER_PASS'] = result.stdout.strip()
         if hasattr(self, 'root_pass_entry'):
-            self.state['ROOT_PASS'] = self.root_pass_entry.get_text()
+            raw = self.root_pass_entry.get_text()
+            if raw:
+                result = subprocess.run(['openssl', 'passwd', '-6', raw], capture_output=True, text=True)
+                self.state['ROOT_PASS'] = result.stdout.strip()
 
         if hasattr(self, 'priv_combo'):
             priv_values = ["sudo", "doas"]
