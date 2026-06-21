@@ -152,7 +152,6 @@ class RecoveryWindow(BaseWindow):
                                    buttons=Gtk.ButtonsType.OK, text=msg)
         dialog.show()
         dialog.connect("response", lambda d, r: d.destroy())
-        Gtk.main_quit()
 
     def on_next(self, widget):
         self.start_installation()

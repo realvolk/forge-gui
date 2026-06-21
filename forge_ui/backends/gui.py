@@ -67,8 +67,6 @@ class BaseWindow:
 
     def _quit(self):
         self.window.destroy()
-        # GTK4 main loop quits when last window is destroyed; we call Gtk.main_quit() for safety
-        Gtk.main_quit()
 
     def _make_button_box(self, *buttons):
         box = Gtk.Box(spacing=10)

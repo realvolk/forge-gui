@@ -23,7 +23,7 @@ class BaseWindow:
 
         self.window = Gtk.Window(title=title)
         self.window.set_default_size(680, 420)
-        self.window.connect("destroy", Gtk.main_quit)
+        self.window.connect("destroy", lambda *_: None)
 
         self._apply_theme()
 
@@ -129,7 +129,6 @@ class BaseWindow:
             )
         dialog.show()
         dialog.connect("response", lambda d, r: d.destroy())
-        Gtk.main_quit()
 
     def _validate_passwords(self):
         if hasattr(self, 'user_pass_entry') and hasattr(self, 'user_confirm_entry'):
