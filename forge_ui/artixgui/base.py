@@ -128,7 +128,11 @@ class BaseWindow:
                 text=f"Installation failed.\n\nLast log lines:\n{log_tail}"
             )
         dialog.show()
-        dialog.connect("response", lambda d, r: (d.destroy(), self._quit()))
+        dialog_loop = GLib.MainLoop()
+        dialog.connect("response", lambda d, r: dialog_loop.quit())
+        dialog_loop.run()
+        dialog.destroy()
+        self._quit()
 
     def _validate_passwords(self):
         if hasattr(self, 'user_pass_entry') and hasattr(self, 'user_confirm_entry'):
