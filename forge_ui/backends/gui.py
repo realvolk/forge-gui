@@ -7,6 +7,7 @@ import sys
 import subprocess
 import threading
 import re
+import os
 from gi.repository import Gtk, GLib, Adw, Gdk, Pango
 
 
@@ -26,7 +27,6 @@ class BaseWindow:
     def _create_window(self, default_w=600, default_h=400):
         self.window = Gtk.Window(title=self.title_text or "forge-ui")
         self.window.set_default_size(default_w, default_h)
-        # No set_position in GTK4; will be centered by the compositor.
         key_controller = Gtk.EventControllerKey.new()
         key_controller.connect("key-pressed", self._on_key)
         self.window.add_controller(key_controller)
@@ -81,6 +81,9 @@ class BaseWindow:
 
     def run(self):
         self.window.show()
+        loop = GLib.MainLoop()
+        self.window.connect("destroy", lambda *_: loop.quit())
+        loop.run()
         return {"result": self.result, "cancelled": self.cancelled}
 
 
@@ -153,6 +156,9 @@ class InputWindow(BaseWindow):
         )
         self.window.show()
         self.entry.grab_focus()
+        loop = GLib.MainLoop()
+        self.window.connect("destroy", lambda *_: loop.quit())
+        loop.run()
         return {"result": self.result or "", "cancelled": self.cancelled}
 
     def _submit(self):
@@ -182,6 +188,9 @@ class PasswordWindow(InputWindow):
         )
         self.window.show()
         self.entry.grab_focus()
+        loop = GLib.MainLoop()
+        self.window.connect("destroy", lambda *_: loop.quit())
+        loop.run()
         return {"result": self.result or "", "cancelled": self.cancelled}
 
 
@@ -315,7 +324,6 @@ class ProgressWindow(BaseWindow):
             self._make_button_box(("Cancel", lambda b: self._cancel(), False))
         )
 
-        # Load custom CSS for logview if needed (monospace, accent color)
         css_provider = Gtk.CssProvider()
         css_provider.load_from_data(b"""
         .logview {
@@ -331,8 +339,14 @@ class ProgressWindow(BaseWindow):
 
         self.success = True
         self._proc = None
+        self._finished = False
         self.window.show()
         threading.Thread(target=self._run_command, daemon=True).start()
+
+        loop = GLib.MainLoop()
+        self.window.connect("destroy", lambda *_: loop.quit())
+        loop.run()
+
         return {"result": "success" if self.success else "failure",
                 "cancelled": self.cancelled}
 
@@ -364,13 +378,13 @@ class ProgressWindow(BaseWindow):
     def _done(self):
         self.spinner.stop()
         self._finished = True
-        self._quit()
+        self.window.destroy()
 
     def _cancel(self):
         self.cancelled = True
         if self._proc and self._proc.poll() is None:
             self._proc.terminate()
-        self._quit()
+        self.window.destroy()
 
 
 class GuiBackend:

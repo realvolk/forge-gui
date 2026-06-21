@@ -6,35 +6,35 @@ import argparse
 import gi
 gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
-from gi.repository import Gtk, Adw
+from gi.repository import Gtk, Adw, GLib
 
 from .theme import get_colors
 from .schema import validate
 from .backends.gui import GuiBackend
+from .artixgui.mode_select import run_mode_selection
 
 
 def main():
     Adw.init()
+
     sys.stderr.write("=== CLI.PY STARTED ===\n")
     sys.stderr.flush()
+
     parser = argparse.ArgumentParser(description="GTK4 GUI frontend")
     parser.add_argument("--mode", choices=["auto", "gui", "config"], default="auto",
-                        help="Display mode: config = persistent configuration window, gui = single widget, auto = gui if DISPLAY set")
+                        help="Display mode: config = persistent configuration window")
     parser.add_argument("--input", "-i", type=argparse.FileType("r"),
-                        default=sys.stdin, help="Input JSON file (stdin if omitted)")
+                        default=sys.stdin)
     parser.add_argument("--output", "-o", type=argparse.FileType("w"),
-                        default=sys.stdout, help="Output JSON file (stdout if omitted)")
-    parser.add_argument("--color-title", type=int, default=None,
-                        help="Title color (256-color code)")
-    parser.add_argument("--color-accent", type=int, default=None,
-                        help="Accent color (256-color code)")
+                        default=sys.stdout)
+    parser.add_argument("--color-title", type=int, default=None)
+    parser.add_argument("--color-accent", type=int, default=None)
     args = parser.parse_args()
 
     if args.mode == "config":
         state_file = "/tmp/artix-installer/state.conf"
         os.makedirs(os.path.dirname(state_file), exist_ok=True)
         try:
-            from .artixgui.mode_select import run_mode_selection
             run_mode_selection(state_file)
         except Exception as e:
             print(f"GUI mode selection failed: {e}", file=sys.stderr)
@@ -56,7 +56,7 @@ def main():
 
     title_color, accent_color = get_colors(args.color_title, args.color_accent)
 
-    if args.mode == "gui" or (args.mode == "auto" and os.environ.get("DISPLAY")):
+    if args.mode in ("gui", "auto") and os.environ.get("DISPLAY"):
         backend = GuiBackend()
     else:
         json.dump({"error": "No DISPLAY available – cannot start GUI", "cancelled": True}, args.output)

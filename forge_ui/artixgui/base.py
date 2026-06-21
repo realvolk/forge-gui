@@ -4,7 +4,7 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 import os
 import subprocess
-from gi.repository import Gtk, Adw, Gdk
+from gi.repository import Gtk, Adw, Gdk, GLib
 from ..backends.gui import ProgressWindow
 from ..theme import get_colors
 
@@ -23,7 +23,7 @@ class BaseWindow:
 
         self.window = Gtk.Window(title=title)
         self.window.set_default_size(680, 420)
-        self.window.connect("destroy", lambda *_: None)
+        self._loop = None
 
         self._apply_theme()
 
@@ -128,7 +128,7 @@ class BaseWindow:
                 text=f"Installation failed.\n\nLast log lines:\n{log_tail}"
             )
         dialog.show()
-        dialog.connect("response", lambda d, r: d.destroy())
+        dialog.connect("response", lambda d, r: (d.destroy(), self._quit()))
 
     def _validate_passwords(self):
         if hasattr(self, 'user_pass_entry') and hasattr(self, 'user_confirm_entry'):
@@ -190,7 +190,16 @@ class BaseWindow:
         self.stack.set_visible_child(self.pages[0])
         self.update_nav_buttons()
         self.window.show()
+        self._loop = GLib.MainLoop()
+        self.window.connect("destroy", lambda *_: self._loop.quit())
+        self._loop.run()
+        self._loop = None
         return self.state
+
+    def _quit(self):
+        if self._loop:
+            self._loop.quit()
+        self.window.destroy()
 
 
 class CommonPages:
