@@ -190,7 +190,6 @@ class BaseWindow:
         self.stack.set_visible_child(self.pages[0])
         self.update_nav_buttons()
         self.window.show()
-        Gtk.main()
         return self.state
 
 

@@ -81,7 +81,6 @@ class BaseWindow:
 
     def run(self):
         self.window.show()
-        Gtk.main()
         return {"result": self.result, "cancelled": self.cancelled}
 
 
@@ -154,7 +153,6 @@ class InputWindow(BaseWindow):
         )
         self.window.show()
         self.entry.grab_focus()
-        Gtk.main()
         return {"result": self.result or "", "cancelled": self.cancelled}
 
     def _submit(self):
@@ -184,7 +182,6 @@ class PasswordWindow(InputWindow):
         )
         self.window.show()
         self.entry.grab_focus()
-        Gtk.main()
         return {"result": self.result or "", "cancelled": self.cancelled}
 
 
@@ -336,7 +333,6 @@ class ProgressWindow(BaseWindow):
         self._proc = None
         self.window.show()
         threading.Thread(target=self._run_command, daemon=True).start()
-        Gtk.main()
         return {"result": "success" if self.success else "failure",
                 "cancelled": self.cancelled}
 

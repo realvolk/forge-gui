@@ -81,7 +81,6 @@ def run_mode_selection(state_file):
     start_btn.connect("clicked", on_start)
 
     win.show()
-    Gtk.main()
 
     chosen = chosen_mode[0]
 
