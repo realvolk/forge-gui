@@ -363,24 +363,23 @@ class ProgressWindow(BaseWindow):
     def _run_command(self):
         cmd = self.data.get("command", [])
         state = self.data.get("state", {})
+        logfile = self.data.get("logfile")
         
         stages = [
-            ("preflight", "Preflight dependencies installed", 0.05),
-            ("storage", "Mount setup completed", 0.10),
-            ("partition", "Partitioning complete", 0.15),
-            ("filesystem", "Filesystem creation complete", 0.20),
-            ("base", "Base system installation complete", 0.35),
+            ("Preflight dependencies installed.", 0.10),
+            ("Mount setup completed.", 0.25),
+            ("Base system installation complete.", 0.40),
         ]
         if state.get("POWER_USER") == "yes":
-            stages.append(("poweruser", "All source packages built and installed", 0.55))
+            stages.append(("All source packages built and installed.", 0.60))
         stages += [
-            ("chroot", "Bootloader setup complete", 0.55 if state.get("POWER_USER") != "yes" else 0.70),
-            ("init", "BusyBox init configuration complete", 0.60 if state.get("POWER_USER") != "yes" else 0.75),
-            ("post", "Post-install configuration complete", 0.85),
-            ("finalize", "Artix installation completed successfully", 0.95),
+            ("Bootloader setup complete.", 0.70),
+            ("BusyBox init configuration complete.", 0.75),
+            ("Post-install configuration complete.", 0.90),
+            ("Applying final system configuration...", 0.95),
         ]
         
-        stage_match = {msg: prog for _, msg, prog in stages}
+        stage_match = {msg: prog for msg, prog in stages}
         current = 0.0
         
         self._proc = subprocess.Popen(
@@ -392,6 +391,9 @@ class ProgressWindow(BaseWindow):
         )
         for line in self._proc.stdout:
             GLib.idle_add(self._append_log, line)
+            if logfile:
+                with open(logfile, "a") as f:
+                    f.write(line)
             for msg, prog in stage_match.items():
                 if msg in line:
                     current = max(current, prog)
