@@ -23,6 +23,37 @@ class ISOBuilderWindow(BaseWindow):
         self.profile_name = "Desktop"
         self.offline = "no"
         self.extra_packages = ""
+        self.iso_stage_file = "/tmp/artix-installer/iso-build-stage.conf"
+        if os.path.exists(self.iso_stage_file):
+            self.add_page("Resume ISO Build", self.create_resume_page())
+    
+    def create_resume_page(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.set_valign(Gtk.Align.CENTER)
+        box.set_halign(Gtk.Align.CENTER)
+        label = Gtk.Label()
+        label.set_markup('<span size="large" weight="bold">Resume ISO Build</span>')
+        box.append(label)
+        desc = Gtk.Label()
+        with open(self.iso_stage_file) as f:
+            stage = f.read().strip()
+        desc.set_text(f"A previous ISO build was interrupted at stage: {stage}\n\nClick Resume to continue from where it stopped, or Start Fresh to begin a new build.")
+        desc.set_justify(Gtk.Justification.CENTER)
+        box.append(desc)
+        resume_btn = Gtk.Button(label="Resume")
+        resume_btn.connect("clicked", lambda b: self.start_installation())
+        box.append(resume_btn)
+        fresh_btn = Gtk.Button(label="Start Fresh")
+        fresh_btn.connect("clicked", self.on_fresh_build)
+        box.append(fresh_btn)
+        return box
+    
+    def on_fresh_build(self, widget):
+        if os.path.exists(self.iso_stage_file):
+            os.remove(self.iso_stage_file)
+        self.stack.set_visible_child(self.pages[0])
+        self.current_page = 0
+        self.update_nav_buttons()
 
     def create_bootmode_page(self):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
