@@ -315,11 +315,14 @@ echo "WM_DE=$(state_get WM_DE none)"
         init = self._get_combo_text(self.ata_init_combo, ["openrc", "runit", "dinit", "s6"])
         arch_repos = "yes" if self.ata_arch_repos_check.get_active() else "no"
         aur_helper = self._get_combo_text(self.ata_aur_combo, ["paru", "yay", "Skip"])
+        de = self.state.get('DETECTED_DE', 'unknown')
 
-        text = "Arch Linux  Artix Migration\n\n"
+        text = "Arch Linux → Artix Migration\n\n"
         text += f"Target init: {init}\n"
         text += f"Arch repositories: {arch_repos}\n"
-        text += f"AUR helper: {aur_helper}\n\n"
+        text += f"AUR helper: {aur_helper}\n"
+        if de and de != 'none':
+            text += f"Detected desktop: {de}\n"
         text += "This will:\n"
         text += "  Audit your entire system\n"
         text += "  Back up everything to /arch-migration-backup-*/\n"
@@ -380,7 +383,7 @@ echo "WM_DE=$(state_get WM_DE none)"
             self.state['MIGRATION_SRC'] = self.init_source
             self.state['MIGRATION_TGT'] = self.init_target
         else:
-            des = ["kde", "sonicde", "xfce", "lxqt", "lxde", "hyprland", "sway", "niri", "i3wm", "dwm", "vxwm", "icewm", "mango", "none"]
+            des = ["kde", "sonicde", "xfce", "lxqt", "lxde", "hyprland", "sway", "niri", "i3wm", "dwm", "vxwm", "icewm", "mango", "cinnamon", "budgie", "moksha", "cosmic", "none"]
             self.desktop_source = self._get_combo_text(self.de_src_combo, des)
             self.desktop_target = self._get_combo_text(self.de_tgt_combo, des)
             self.state['MIGRATION_TYPE'] = 'desktop'
