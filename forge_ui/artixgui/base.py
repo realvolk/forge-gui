@@ -470,7 +470,8 @@ class CommonPages:
 
         self.de_combo = Gtk.DropDown.new(Gtk.StringList.new([
             "kde", "sonicde", "xfce4", "lxqt", "lxde", "hyprland", "sway",
-            "niri", "i3wm", "dwm", "vxwm", "icewm", "mango", "none"
+            "niri", "i3wm", "dwm", "vxwm", "icewm", "mango",
+            "cinnamon", "budgie", "moksha", "cosmic", "none"
         ]))
         box.append(self.de_combo)
 
@@ -833,7 +834,8 @@ class CommonPages:
 
         if hasattr(self, 'de_combo'):
             de_values = ["kde", "sonicde", "xfce4", "lxqt", "lxde", "hyprland", "sway",
-                         "niri", "i3wm", "dwm", "vxwm", "icewm", "mango", "none"]
+                         "niri", "i3wm", "dwm", "vxwm", "icewm", "mango",
+                         "cinnamon", "budgie", "moksha", "cosmic", "none"]
             idx = self.de_combo.get_selected()
             if 0 <= idx < len(de_values):
                 self.state['WM_DE'] = de_values[idx]

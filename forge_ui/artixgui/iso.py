@@ -126,7 +126,8 @@ class ISOBuilderWindow(BaseWindow):
         box.append(de_label)
         self.de_combo = Gtk.DropDown.new(Gtk.StringList.new([
             "kde", "sonicde", "xfce", "lxqt", "lxde", "hyprland", "sway", "niri",
-            "i3wm", "dwm", "vxwm", "icewm", "mango", "none"
+            "i3wm", "dwm", "vxwm", "icewm", "mango",
+            "cinnamon", "budgie", "moksha", "cosmic", "none"
         ]))
         box.append(self.de_combo)
         return box
