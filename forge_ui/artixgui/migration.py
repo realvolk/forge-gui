@@ -138,7 +138,7 @@ echo "WM_DE=$(state_get WM_DE none)"
         detected = self.state.get('DETECTED_DE', 'none')
         src_label = Gtk.Label(label=f"Current desktop (detected: {detected}):", xalign=0)
         box.append(src_label)
-        des = ["kde", "sonicde", "xfce", "lxqt", "lxde", "hyprland", "sway", "niri", "i3wm", "dwm", "vxwm", "icewm", "mango", "none"]
+        des = ["kde", "sonicde", "xfce", "lxqt", "lxde", "hyprland", "sway", "niri", "i3wm", "dwm", "vxwm", "icewm", "mango", "cinnamon", "budgie", "moksha", "cosmic", "none"]
         self.de_src_combo = Gtk.DropDown.new(Gtk.StringList.new(des))
         if detected in des:
             self.de_src_combo.set_selected(des.index(detected))
