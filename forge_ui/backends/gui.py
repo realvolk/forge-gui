@@ -265,168 +265,6 @@ class SummaryWindow(BaseWindow):
         return super().run()
 
 
-class ProgressWindow(BaseWindow):
-    def _create_window(self, default_w=800, default_h=600):
-        self.window = Gtk.Window(title=self.title_text or "forge-ui")
-        self.window.set_default_size(default_w, default_h)
-        key_controller = Gtk.EventControllerKey.new()
-        key_controller.connect("key-pressed", self._on_key)
-        self.window.add_controller(key_controller)
-        self.window.connect("destroy", self._on_destroy)
-
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        vbox.set_margin_top(20)
-        vbox.set_margin_bottom(20)
-        vbox.set_margin_start(20)
-        vbox.set_margin_end(20)
-        vbox.set_valign(Gtk.Align.FILL)
-        vbox.set_vexpand(True)
-        self.window.set_child(vbox)
-
-        if self.title_text:
-            title_label = Gtk.Label(label=self.title_text)
-            title_label.add_css_class("title-1")
-            title_label.set_halign(Gtk.Align.CENTER)
-            vbox.append(title_label)
-
-        if self.message:
-            msg_label = Gtk.Label(label=self.message)
-            msg_label.set_halign(Gtk.Align.CENTER)
-            msg_label.set_wrap(True)
-            msg_label.set_max_width_chars(60)
-            vbox.append(msg_label)
-
-        return vbox
-
-    def run(self):
-        vbox = self._create_window(800, 600)
-
-        app = Gtk.Application.get_default()
-        if app:
-            app.add_window(self.window)
-
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.AUTOMATIC)
-        scrolled.set_hexpand(True)
-        scrolled.set_vexpand(True)
-
-        self.log_view = Gtk.TextView()
-        self.log_view.set_editable(False)
-        self.log_view.set_wrap_mode(Gtk.WrapMode.WORD)
-        self.log_view.set_hexpand(True)
-        self.log_view.set_vexpand(True)
-        self.log_view.add_css_class("logview")
-
-        scrolled.set_child(self.log_view)
-        vbox.append(scrolled)
-
-        # Progress bar
-        self.progress_bar = Gtk.ProgressBar()
-        self.progress_bar.set_show_text(True)
-        self.progress_bar.set_fraction(0.0)
-        vbox.append(self.progress_bar)
-
-        self.spinner = Gtk.Spinner()
-        self.spinner.start()
-        vbox.append(self.spinner)
-
-        vbox.append(
-            self._make_button_box(("Cancel", lambda b: self._cancel(), False))
-        )
-
-        css_provider = Gtk.CssProvider()
-        css_provider.load_from_data(b"""
-        .logview {
-            font-family: monospace;
-            padding: 8px;
-        }
-        """)
-        Gtk.StyleContext.add_provider_for_display(
-            Gdk.Display.get_default(),
-            css_provider,
-            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
-        )
-
-        self.success = True
-        self._proc = None
-        self._finished = False
-        self.window.show()
-        threading.Thread(target=self._run_command, daemon=True).start()
-
-        loop = GLib.MainLoop()
-        self.window.connect("destroy", lambda *_: loop.quit())
-        loop.run()
-
-        return {"result": "success" if self.success else "failure",
-                "cancelled": self.cancelled}
-
-    def _run_command(self):
-        cmd = self.data.get("command", [])
-        state = self.data.get("state", {})
-        logfile = self.data.get("logfile")
-        
-        stages = [
-            ("Preflight dependencies installed.", 0.10),
-            ("Mount setup completed.", 0.25),
-            ("Base system installation complete.", 0.40),
-        ]
-        if state.get("POWER_USER") == "yes":
-            stages.append(("All source packages built and installed.", 0.60))
-        stages += [
-            ("Bootloader setup complete.", 0.70),
-            ("BusyBox init configuration complete.", 0.75),
-            ("Post-install configuration complete.", 0.90),
-            ("Applying final system configuration...", 0.95),
-        ]
-        
-        stage_match = {msg: prog for msg, prog in stages}
-        current = 0.0
-        
-        cwd = self.data.get("cwd")
-        self._proc = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-            cwd=cwd,
-        )
-        for line in self._proc.stdout:
-            GLib.idle_add(self._append_log, line)
-            if logfile:
-                with open(logfile, "a") as f:
-                    f.write(line)
-            for msg, prog in stage_match.items():
-                if msg in line:
-                    current = max(current, prog)
-                    GLib.idle_add(self.progress_bar.set_fraction, current)
-                    break
-        self._proc.wait()
-        self.success = self._proc.returncode == 0
-        GLib.idle_add(self._done)
-
-    def _append_log(self, line):
-        clean = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', line)
-        clean = re.sub(r'\[[0-9;]*m', '', clean)
-        clean = re.sub(r'\[[0-9;]*K', '', clean)
-        clean = ''.join(c for c in clean if c.isprintable() or c in '\n\r\t ')
-        buf = self.log_view.get_buffer()
-        buf.insert(buf.get_end_iter(), clean)
-        self.log_view.scroll_to_iter(buf.get_end_iter(), 0.0, False, 0.0, 0.0)
-
-    def _done(self):
-        self.spinner.stop()
-        self.progress_bar.set_fraction(1.0)
-        self._finished = True
-        self.window.destroy()
-
-    def _cancel(self):
-        self.cancelled = True
-        if self._proc and self._proc.poll() is None:
-            self._proc.terminate()
-        self.window.destroy()
-
-
 class GuiBackend:
     def run(self, data, title_color=212, accent_color=34):
         widget = data["widget"]
@@ -438,9 +276,102 @@ class GuiBackend:
             "checklist": ChecklistWindow,
             "msg": MsgWindow,
             "summary": SummaryWindow,
-            "progress": ProgressWindow,
+            "progress": ProgressPage,
         }
         cls = cls_map.get(widget)
         if cls is None:
             return {"result": "", "cancelled": True}
         return cls(data, title_color, accent_color).run()
+
+class ProgressPage(Gtk.Box):
+    """Embeddable progress page for the Adw.NavigationView."""
+
+    def __init__(self, title, command, state, cwd, on_complete, app=None):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        self.command = command
+        self.state = state
+        self.cwd = cwd
+        self.on_complete = on_complete
+        self.app = app
+
+        self.set_margin_top(20); self.set_margin_bottom(20)
+        self.set_margin_start(20); self.set_margin_end(20)
+
+        title_label = Gtk.Label(label=title)
+        title_label.add_css_class("title-1")
+        self.append(title_label)
+
+        scrolled = Gtk.ScrolledWindow()
+        scrolled.set_hexpand(True); scrolled.set_vexpand(True)
+        self.log_view = Gtk.TextView()
+        self.log_view.set_editable(False)
+        self.log_view.set_monospace(True)
+        scrolled.set_child(self.log_view)
+        self.append(scrolled)
+
+        self.progress_bar = Gtk.ProgressBar()
+        self.progress_bar.set_show_text(True)
+        self.append(self.progress_bar)
+
+        self.spinner = Gtk.Spinner()
+        self.spinner.start()
+        self.append(self.spinner)
+
+        cancel_btn = Gtk.Button(label="Cancel")
+        cancel_btn.connect("clicked", self._cancel)
+        self.append(cancel_btn)
+
+        self._proc = None
+        self._finished = False
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        stages = [
+            ("Preflight dependencies installed.", 0.10),
+            ("Mount setup completed.", 0.25),
+            ("Base system installation complete.", 0.40),
+        ]
+        if self.state.get("POWER_USER") == "yes":
+            stages.append(("All source packages built and installed.", 0.60))
+        stages += [
+            ("Bootloader setup complete.", 0.70),
+            ("Post-install configuration complete.", 0.90),
+            ("Applying final system configuration...", 0.95),
+        ]
+        stage_match = {msg: prog for msg, prog in stages}
+        current = 0.0
+
+        self._proc = subprocess.Popen(
+            self.command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+            text=True, bufsize=1, cwd=self.cwd
+        )
+        for line in self._proc.stdout:
+            GLib.idle_add(self._append_log, line)
+            for msg, prog in stage_match.items():
+                if msg in line:
+                    current = max(current, prog)
+                    GLib.idle_add(self.progress_bar.set_fraction, current)
+                    break
+        self._proc.wait()
+        success = self._proc.returncode == 0
+        GLib.idle_add(self._finish, success, False)
+
+    def _append_log(self, line):
+        clean = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', line)
+        clean = ''.join(c for c in clean if c.isprintable() or c in '\n\r\t ')
+        buf = self.log_view.get_buffer()
+        buf.insert(buf.get_end_iter(), clean)
+        self.log_view.scroll_to_iter(buf.get_end_iter(), 0.0, False, 0.0, 0.0)
+
+    def _finish(self, success, cancelled):
+        if self._finished:
+            return
+        self._finished = True
+        self.spinner.stop()
+        self.progress_bar.set_fraction(1.0)
+        self.on_complete(success, cancelled)
+
+    def _cancel(self, btn):
+        if self._proc and self._proc.poll() is None:
+            self._proc.terminate()
+        self._finish(False, True)

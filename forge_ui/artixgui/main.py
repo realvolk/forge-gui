@@ -5,37 +5,17 @@ import os
 import sys
 from gi.repository import Gtk
 
-from .automatic import AutomaticWindow
-from .manual import ManualWindow
-from .resume import ResumeWindow
-from .recovery import RecoveryWindow
-from .poweruser import PowerUserWindow
-from .iso import ISOBuilderWindow
-from .migration import MigrationWindow
+from .base import InstallerApp
+
 
 class ArtixForgeDispatcher:
+    """Legacy dispatcher – kept for compatibility with direct imports.
+       The new code path uses InstallerApp directly from cli.py."""
     def __init__(self, state_file):
         self.state_file = state_file
         self.state = {}
         self.load_state()
         self.mode = self.state.get("MODE", "auto")
-
-        if self.mode == "auto":
-            self.window = AutomaticWindow(state_file, self.state)
-        elif self.mode == "manual":
-            self.window = ManualWindow(state_file, self.state)
-        elif self.mode == "resume":
-            self.window = ResumeWindow(state_file, self.state)
-        elif self.mode == "recovery":
-            self.window = RecoveryWindow(state_file, self.state)
-        elif self.mode == "power":
-            self.window = PowerUserWindow(state_file, self.state)
-        elif self.mode == "iso":
-            self.window = ISOBuilderWindow(state_file, self.state)
-        elif self.mode == "migrate":
-            self.window = MigrationWindow(state_file, self.state)
-        else:
-            raise ValueError(f"(MAIN.py) Unknown installation mode: {self.mode}")
 
     def load_state(self):
         if os.path.exists(self.state_file):
@@ -51,7 +31,10 @@ class ArtixForgeDispatcher:
                 print(f"Warning: Could not load state: {e}")
 
     def run(self):
-        self.window.run()
+        app = InstallerApp(self.state_file)
+        app.state = self.state
+        app.run()
+
 
 def run_dispatcher(state_file):
     dispatcher = ArtixForgeDispatcher(state_file)

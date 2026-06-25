@@ -1,127 +1,92 @@
 #!/usr/bin/env python3
 import gi
 gi.require_version('Gtk', '4.0')
+gi.require_version('Adw', '1')
 import os
-from gi.repository import Gtk, GLib
-from .automatic import AutomaticWindow
-from .manual import ManualWindow
-from .poweruser import PowerUserWindow
-from .recovery import RecoveryWindow
-from .iso import ISOBuilderWindow
-from .migration import MigrationWindow
-from .resume import ResumeWindow
+from gi.repository import Gtk, Adw
+from .automatic import AutomaticWizard
+from .manual import ManualWizard
+from .poweruser import PowerUserWizard
+from .recovery import RecoveryWizard
+from .iso import ISOWizard
+from .migration import MigrationWizard
+from .resume import ResumeWizard
 
 
-class ModeSelectApp(Gtk.Application):
-    def __init__(self, state_file):
-        super().__init__(application_id="com.artixforge.mode-select")
-        self.state_file = state_file
+class ModeCard(Gtk.FlowBoxChild):
+    def __init__(self, title, description, icon_name):
+        super().__init__()
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        box.set_margin_top(20); box.set_margin_bottom(20)
+        box.set_margin_start(20); box.set_margin_end(20)
+        icon = Gtk.Image.new_from_icon_name(icon_name)
+        icon.set_pixel_size(64)
+        box.append(icon)
+        label = Gtk.Label(label=title)
+        label.add_css_class("title-3")
+        box.append(label)
+        desc = Gtk.Label(label=description)
+        desc.add_css_class("caption")
+        desc.set_wrap(True)
+        desc.set_max_width_chars(25)
+        box.append(desc)
+        self.set_child(box)
 
-    def do_activate(self):
-        win = Gtk.ApplicationWindow(application=self, title="Select Installation Mode")
-        win.set_default_size(500, 380)
 
-        vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
-        vbox.set_margin_top(20)
-        vbox.set_margin_bottom(20)
-        vbox.set_margin_start(20)
-        vbox.set_margin_end(20)
-        win.set_child(vbox)
-
+class ModeSelectPage(Gtk.Box):
+    def __init__(self, app):
+        super().__init__(orientation=Gtk.Orientation.VERTICAL)
+        self.app = app
         label = Gtk.Label()
         label.set_markup('<span size="large" weight="bold">Choose installation mode:</span>')
-        vbox.append(label)
+        label.set_margin_top(20)
+        self.append(label)
 
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scrolled.set_min_content_height(200)
-
-        listbox = Gtk.ListBox()
-        listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        flowbox = Gtk.FlowBox()
+        flowbox.set_max_children_per_line(3)
+        flowbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
 
         modes = [
-            "Automatic Installation",
-            "Manual Installation",
-            "Power User Installation",
-            "System Recovery",
-            "Build ISO",
-            "System Migration",
-            "Resume Installation"
+            ("Automatic", "Guided installation with sensible defaults", "system-run-symbolic"),
+            ("Manual", "Detect existing partitions", "drive-harddisk-symbolic"),
+            ("Power User", "Source compilation", "applications-engineering-symbolic"),
+            ("Recovery", "Scan /mnt for existing system", "tools-check-spelling-symbolic"),
+            ("Build ISO", "Create custom live ISO", "media-optical-symbolic"),
+            ("System Migration", "Convert init/desktop or Arch→Artix", "emblem-synchronizing-symbolic"),
+            ("Resume", "Continue interrupted install", "media-seek-forward-symbolic"),
         ]
 
-        for i, mode in enumerate(modes):
-            row = Gtk.ListBoxRow()
-            lbl = Gtk.Label(label=mode, xalign=0, margin_top=8, margin_bottom=8)
-            row.set_child(lbl)
-            listbox.append(row)
-            if i == 0:
-                listbox.select_row(row)
+        for title, desc, icon in modes:
+            flowbox.append(ModeCard(title, desc, icon))
 
-        scrolled.set_child(listbox)
-        vbox.append(scrolled)
+        flowbox.connect("child-activated", self._on_mode_selected)
+        self.append(flowbox)
 
-        btn_box = Gtk.Box(spacing=10)
-        btn_box.set_halign(Gtk.Align.END)
+    def _on_mode_selected(self, flowbox, child):
+        idx = child.get_index()
+        titles = ["Automatic", "Manual", "Power User", "Recovery", "Build ISO", "System Migration", "Resume"]
+        chosen = titles[idx]
 
-        cancel_btn = Gtk.Button(label="Cancel")
-        cancel_btn.connect("clicked", lambda b: self.quit())
-        btn_box.append(cancel_btn)
+        # Clear state for fresh starts
+        if chosen not in ["Resume", "Recovery", "System Migration"]:
+            if os.path.exists(self.app.state_file):
+                os.remove(self.app.state_file)
+            self.app.state.clear()
 
-        start_btn = Gtk.Button(label="Start")
-        start_btn.add_css_class("suggested-action")
-        btn_box.append(start_btn)
+        self.app.state['MODE'] = chosen.lower().replace(" ", "")
+        self.app.state['GUI_MODE'] = 'yes'
 
-        vbox.append(btn_box)
-
-        def on_start(btn):
-            row = listbox.get_selected_row()
-            if row:
-                chosen = modes[row.get_index()]
-                win.destroy()
-                self._launch_config(chosen)
-
-        start_btn.connect("clicked", on_start)
-        win.show()
-
-    def _launch_config(self, chosen):
-        state = {}
-        preserve_modes = ["Resume Installation", "System Recovery", "System Migration"]
-        if chosen not in preserve_modes:
-            if os.path.exists(self.state_file):
-                os.remove(self.state_file)
-            os.makedirs(os.path.dirname(self.state_file), exist_ok=True)
-        
-        if chosen == "Resume Installation":
-            if os.path.exists(self.state_file):
-                with open(self.state_file, 'r') as f:
-                    for line in f:
-                        line = line.strip()
-                        if '=' in line and not line.startswith('#'):
-                            key, value = line.split('=', 1)
-                            state[key] = value.strip('"').replace('\\"', '"')
-
-        window_classes = {
-            "Automatic Installation": AutomaticWindow,
-            "Manual Installation": ManualWindow,
-            "Power User Installation": PowerUserWindow,
-            "System Recovery": RecoveryWindow,
-            "Build ISO": ISOBuilderWindow,
-            "System Migration": MigrationWindow,
-            "Resume Installation": ResumeWindow,
-        }
-        cls = window_classes.get(chosen)
-        if cls is None:
-            self.quit()
-            return
-
-        self.hold()
-        config_win = cls(self.state_file, state)
-        config_win.app = self
-        config_win.run()
-        self.release()
-        self.quit()
-
-
-def run_mode_selection(state_file):
-    app = ModeSelectApp(state_file)
-    app.run()
+        if chosen == "Automatic":
+            AutomaticWizard(self.app).push_pages()
+        elif chosen == "Manual":
+            ManualWizard(self.app).push_pages()
+        elif chosen == "Power User":
+            PowerUserWizard(self.app).push_pages()
+        elif chosen == "Recovery":
+            RecoveryWizard(self.app).push_pages()
+        elif chosen == "Build ISO":
+            ISOWizard(self.app).push_pages()
+        elif chosen == "System Migration":
+            MigrationWizard(self.app).push_pages()
+        elif chosen == "Resume":
+            ResumeWizard(self.app).push_pages()
