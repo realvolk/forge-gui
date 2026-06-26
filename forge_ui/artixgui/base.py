@@ -290,50 +290,185 @@ class InstallerApp(Adw.Application):
 
     def create_users_page(self):
         page = Adw.PreferencesPage()
-        group = Adw.PreferencesGroup(title="User Accounts")
 
+        sys_group = Adw.PreferencesGroup(title="System Settings")
         entries = [
             ("Hostname", "artix", "HOSTNAME"),
             ("Timezone", "Europe/Belgrade", "TIMEZONE"),
             ("Locale", "en_US.UTF-8", "LOCALE"),
             ("Keyboard layout", "us", "KEYMAP"),
-            ("Username", "artix", "USER_NAME"),
         ]
-
         for label, default, key in entries:
             entry = Gtk.Entry()
             entry.set_text(default)
             entry.connect("changed", lambda e, k=key: self.state.update({k: e.get_text()}))
             row = Adw.ActionRow(title=label)
             row.add_suffix(entry)
-            group.add(row)
+            sys_group.add(row)
+        page.add(sys_group)
 
-        self.user_pass_entry = Gtk.PasswordEntry()
-        self.user_pass_entry.set_show_peek_icon(False)
-        up_row = Adw.ActionRow(title="User Password")
-        up_row.add_suffix(self.user_pass_entry)
-        group.add(up_row)
+        self.users_group = Adw.PreferencesGroup(title="User Accounts")
+        self._rebuild_user_list()
+        page.add(self.users_group)
 
-        self.user_confirm_entry = Gtk.PasswordEntry()
-        self.user_confirm_entry.set_show_peek_icon(False)
-        uc_row = Adw.ActionRow(title="Confirm User Password")
-        uc_row.add_suffix(self.user_confirm_entry)
-        group.add(uc_row)
+        btn_box = Gtk.Box(spacing=10)
+        btn_box.set_halign(Gtk.Align.CENTER)
+        add_btn = Gtk.Button(label="Add User")
+        add_btn.add_css_class("suggested-action")
+        add_btn.connect("clicked", self._on_add_user)
+        btn_box.append(add_btn)
+        self.users_group.add(btn_box)
 
+        root_group = Adw.PreferencesGroup(title="Root Password")
         self.root_pass_entry = Gtk.PasswordEntry()
         self.root_pass_entry.set_show_peek_icon(False)
-        rp_row = Adw.ActionRow(title="Root Password")
-        rp_row.add_suffix(self.root_pass_entry)
-        group.add(rp_row)
+        root_row = Adw.ActionRow(title="Root Password")
+        root_row.add_suffix(self.root_pass_entry)
+        root_group.add(root_row)
+        page.add(root_group)
 
-        self.root_confirm_entry = Gtk.PasswordEntry()
-        self.root_confirm_entry.set_show_peek_icon(False)
-        rc_row = Adw.ActionRow(title="Confirm Root Password")
-        rc_row.add_suffix(self.root_confirm_entry)
-        group.add(rc_row)
-
-        page.add(group)
         return page
+
+    def _rebuild_user_list(self):
+        children = []
+        for child in self.users_group:
+            children.append(child)
+        for child in children:
+            if isinstance(child, Gtk.Box):  # the button box
+                break
+            self.users_group.remove(child)
+
+        count = int(self.state.get("USER_COUNT", 0))
+        for i in range(1, count + 1):
+            name = self.state.get(f"USER_{i}_NAME", f"User {i}")
+            sudo = self.state.get(f"USER_{i}_SUDO", "no")
+            label = f"{name} (sudo: {sudo})"
+            row = Adw.ActionRow(title=label, subtitle="Click to edit or remove")
+            row.connect("activated", self._on_user_row_activated, i)
+            self.users_group.add(row)
+
+    def _on_user_row_activated(self, row, idx):
+        menu = Gtk.PopoverMenu.new_from_model(None)
+        dialog = Gtk.AlertDialog()
+        dialog.set_buttons(["Edit", "Remove", "Cancel"])
+        dialog.set_message(f"Manage {self.state.get(f'USER_{idx}_NAME', f'User {idx}')}")
+        dialog.choose(self.window, None, self._on_user_action_chosen, idx)
+
+    def _on_user_action_chosen(self, dialog, result, idx):
+        try:
+            choice = dialog.choose_finish(result)
+        except Exception:
+            return
+        if choice == 0:  # Edit
+            self._edit_user_dialog(idx)
+        elif choice == 1:  # Remove
+            name = self.state.get(f"USER_{idx}_NAME", f"User {idx}")
+            confirm = Gtk.AlertDialog()
+            confirm.set_buttons(["Cancel", "Remove"])
+            confirm.set_message(f"Remove {name}?")
+            confirm.choose(self.window, None, lambda d, r: self._on_remove_confirmed(d, r, idx))
+
+    def _on_remove_confirmed(self, dialog, result, idx):
+        try:
+            choice = dialog.choose_finish(result)
+        except Exception:
+            return
+        if choice != 1:
+            return
+        count = int(self.state.get("USER_COUNT", 0))
+        for i in range(idx, count):
+            next_i = i + 1
+            for key in ("NAME", "PASS", "SHELL", "GROUPS", "SUDO"):
+                self.state[f"USER_{i}_{key}"] = self.state.get(f"USER_{next_i}_{key}", "")
+        for key in ("NAME", "PASS", "SHELL", "GROUPS", "SUDO"):
+            self.state.pop(f"USER_{count}_{key}", None)
+        self.state["USER_COUNT"] = str(count - 1)
+        self._rebuild_user_list()
+
+    def _on_add_user(self, btn):
+        count = int(self.state.get("USER_COUNT", 0))
+        self._edit_user_dialog(count + 1)
+
+    def _edit_user_dialog(self, idx):
+        dialog = Gtk.Dialog(title="User Details", transient_for=self.window, modal=True)
+        dialog.set_default_size(400, 350)
+        dialog.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        dialog.add_button("Save", Gtk.ResponseType.OK)
+        vbox = dialog.get_content_area()
+        vbox.set_spacing(10)
+        vbox.set_margin_top(10); vbox.set_margin_start(10)
+        vbox.set_margin_end(10); vbox.set_margin_bottom(10)
+
+        name_entry = Gtk.Entry()
+        name_entry.set_text(self.state.get(f"USER_{idx}_NAME", ""))
+        vbox.append(Gtk.Label(label="Username:", xalign=0))
+        vbox.append(name_entry)
+
+        pass_entry = Gtk.PasswordEntry()
+        pass_entry.set_show_peek_icon(False)
+        vbox.append(Gtk.Label(label="Password:", xalign=0))
+        vbox.append(pass_entry)
+
+        shell_combo = Gtk.DropDown.new(Gtk.StringList.new(["bash", "zsh", "fish"]))
+        current_shell = self.state.get(f"USER_{idx}_SHELL", "/bin/bash")
+        if "zsh" in current_shell:
+            shell_combo.set_selected(1)
+        elif "fish" in current_shell:
+            shell_combo.set_selected(2)
+        else:
+            shell_combo.set_selected(0)
+        vbox.append(Gtk.Label(label="Shell:", xalign=0))
+        vbox.append(shell_combo)
+
+        vbox.append(Gtk.Label(label="Groups:", xalign=0))
+        groups_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        group_names = ["wheel", "audio", "video", "storage", "lp", "network", "optical", "scanner", "users"]
+        current_groups = self.state.get(f"USER_{idx}_GROUPS", "wheel audio video storage").split()
+        checks = {}
+        for g in group_names:
+            check = Gtk.CheckButton(label=g)
+            check.set_active(g in current_groups)
+            checks[g] = check
+            groups_box.append(check)
+        vbox.append(groups_box)
+
+        sudo_switch = Gtk.Switch()
+        sudo_switch.set_active(self.state.get(f"USER_{idx}_SUDO", "yes") == "yes")
+        sudo_row = Adw.ActionRow(title="Sudo access")
+        sudo_row.add_suffix(sudo_switch)
+        vbox.append(sudo_row)
+
+        dialog.show()
+
+        def on_response(d, resp):
+            if resp == Gtk.ResponseType.OK:
+                name = name_entry.get_text().strip()
+                if not name:
+                    return
+                raw_pass = pass_entry.get_text()
+                hashed = ""
+                if raw_pass:
+                    import subprocess
+                    result = subprocess.run(['openssl', 'passwd', '-6', raw_pass], capture_output=True, text=True)
+                    hashed = result.stdout.strip()
+                shell_vals = ["/bin/bash", "/bin/zsh", "/usr/bin/fish"]
+                shell = shell_vals[shell_combo.get_selected()]
+                groups = " ".join([g for g, cb in checks.items() if cb.get_active()])
+                sudo = "yes" if sudo_switch.get_active() else "no"
+
+                self.state[f"USER_{idx}_NAME"] = name
+                self.state[f"USER_{idx}_PASS"] = hashed
+                self.state[f"USER_{idx}_SHELL"] = shell
+                self.state[f"USER_{idx}_GROUPS"] = groups
+                self.state[f"USER_{idx}_SUDO"] = sudo
+
+                count = int(self.state.get("USER_COUNT", 0))
+                if idx > count:
+                    self.state["USER_COUNT"] = str(idx)
+                self._rebuild_user_list()
+            dialog.destroy()
+
+        dialog.connect("response", on_response)
 
     def create_privilege_page(self):
         page = Adw.PreferencesPage()
@@ -504,12 +639,6 @@ class InstallerApp(Adw.Application):
                     extras.append(pkg)
         self.state['EXTRAS'] = " ".join(extras)
 
-        # passwords
-        if hasattr(self, 'user_pass_entry'):
-            raw = self.user_pass_entry.get_text()
-            if raw:
-                result = subprocess.run(['openssl', 'passwd', '-6', raw], capture_output=True, text=True)
-                self.state['USER_PASS'] = result.stdout.strip()
         if hasattr(self, 'root_pass_entry'):
             raw = self.root_pass_entry.get_text()
             if raw:
