@@ -4,8 +4,7 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Adw', '1')
 import os
 from gi.repository import Gtk, Adw
-from .automatic import AutomaticWizard
-from .manual import ManualWizard
+from .installation import InstallationWizard
 from .poweruser import PowerUserWizard
 from .recovery import RecoveryWizard
 from .iso import ISOWizard
@@ -47,8 +46,7 @@ class ModeSelectPage(Gtk.Box):
         flowbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
 
         modes = [
-            ("Automatic", "Guided installation with sensible defaults", "system-run-symbolic"),
-            ("Manual", "Detect existing partitions", "drive-harddisk-symbolic"),
+            ("Installation", "Guided setup with full disk or manual partitioning", "system-run-symbolic"),
             ("Power User", "Source compilation", "applications-engineering-symbolic"),
             ("Recovery", "Scan /mnt for existing system", "tools-check-spelling-symbolic"),
             ("Build ISO", "Create custom live ISO", "media-optical-symbolic"),
@@ -64,7 +62,7 @@ class ModeSelectPage(Gtk.Box):
 
     def _on_mode_selected(self, flowbox, child):
         idx = child.get_index()
-        titles = ["Automatic", "Manual", "Power User", "Recovery", "Build ISO", "System Migration", "Resume"]
+        titles = ["Installation", "Power User", "Recovery", "Build ISO", "System Migration", "Resume"]
         chosen = titles[idx]
 
         # Clear state for fresh starts
@@ -76,10 +74,8 @@ class ModeSelectPage(Gtk.Box):
         self.app.state['MODE'] = chosen.lower().replace(" ", "")
         self.app.state['GUI_MODE'] = 'yes'
 
-        if chosen == "Automatic":
-            AutomaticWizard(self.app).push_pages()
-        elif chosen == "Manual":
-            ManualWizard(self.app).push_pages()
+        if chosen == "Installation":
+            InstallationWizard(self.app).push_pages()
         elif chosen == "Power User":
             PowerUserWizard(self.app).push_pages()
         elif chosen == "Recovery":

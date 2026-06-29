@@ -112,8 +112,8 @@ class PowerUserWizard:
 
 
     def _create_disk_page(self):
-        from .automatic import AutomaticWizard
-        dummy = AutomaticWizard(self.app)
+        from .installation import InstallationWizard
+        dummy = InstallationWizard(self.app)
         return dummy._create_disk_page()
 
 

@@ -7,7 +7,7 @@ from gi.repository import Gtk, Adw, GLib
 from .base import InstallerApp
 
 
-class AutomaticWizard:
+class InstallationWizard:
     def __init__(self, app: InstallerApp):
         self.app = app
 
@@ -51,15 +51,23 @@ class AutomaticWizard:
         disk_row.add_suffix(self.app.disk_combo)
         group.add(disk_row)
 
+        self.app.whole_disk_switch = Gtk.Switch()
+        self.app.whole_disk_switch.set_active(True)
+        whole_row = Adw.ActionRow(title="Use entire disk", subtitle="Auto-partition with ESP and root")
+        whole_row.add_suffix(self.app.whole_disk_switch)
+        group.add(whole_row)
+
+        self.app.auto_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+
         self.app.swap_switch = Gtk.Switch()
         swap_row = Adw.ActionRow(title="Create swap partition")
         swap_row.add_suffix(self.app.swap_switch)
-        group.add(swap_row)
+        self.app.auto_box.append(swap_row)
 
         self.app.luks_switch = Gtk.Switch()
         luks_row = Adw.ActionRow(title="Enable LUKS encryption")
         luks_row.add_suffix(self.app.luks_switch)
-        group.add(luks_row)
+        self.app.auto_box.append(luks_row)
 
         self.app.luks_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         self.app.luks_pass_entry = Gtk.PasswordEntry()
@@ -79,16 +87,36 @@ class AutomaticWizard:
         keyfile_row.add_suffix(self.app.keyfile_switch)
         self.app.luks_box.append(keyfile_row)
         self.app.luks_box.set_visible(False)
-        group.add(self.app.luks_box)
-
-        def on_luks_toggled(switch, state):
-            self.app.luks_box.set_visible(state)
-        self.app.luks_switch.connect("state-set", on_luks_toggled)
+        self.app.auto_box.append(self.app.luks_box)
 
         self.app.lvm_switch = Gtk.Switch()
         lvm_row = Adw.ActionRow(title="Enable LVM")
         lvm_row.add_suffix(self.app.lvm_switch)
-        group.add(lvm_row)
+        self.app.auto_box.append(lvm_row)
+
+        group.add(self.app.auto_box)
+
+        self.app.manual_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        manual_label = Gtk.Label()
+        manual_label.set_text(
+            "You will partition the disk yourself using tools like cfdisk or fdisk.\n"
+            "Create an EFI partition (≥512 MiB) and a root partition.\n"
+            "If you want swap, LUKS, or LVM, set them up manually."
+        )
+        manual_label.set_wrap(True)
+        manual_label.set_margin_bottom(10)
+        self.app.manual_box.append(manual_label)
+        self.app.manual_box.set_visible(False)
+        group.add(self.app.manual_box)
+
+        def on_whole_toggled(switch, state):
+            self.app.auto_box.set_visible(state)
+            self.app.manual_box.set_visible(not state)
+        self.app.whole_disk_switch.connect("state-set", on_whole_toggled)
+
+        def on_luks_toggled(switch, state):
+            self.app.luks_box.set_visible(state)
+        self.app.luks_switch.connect("state-set", on_luks_toggled)
 
         page.add(group)
         return page
@@ -100,6 +128,10 @@ class AutomaticWizard:
             idx = self.app.disk_combo.get_selected()
             if model and 0 <= idx < model.get_n_items():
                 self.app.state['DISK'] = model.get_string(idx)
+        if hasattr(self.app, 'whole_disk_switch'):
+            if not self.app.whole_disk_switch.get_active():
+                self.app.state['EFI_PART'] = ""  # user will partition manually
+                self.app.state['ROOT_PART'] = ""
         if hasattr(self.app, 'swap_switch'):
             self.app.state['SWAP_ENABLED'] = "yes" if self.app.swap_switch.get_active() else "no"
         if hasattr(self.app, 'luks_switch'):
@@ -121,4 +153,4 @@ class AutomaticWizard:
         self._update_summary()
         self.app.state['MODE'] = 'auto'
         self.app.state['GUI_MODE'] = 'yes'
-        self.app.start_installation("Automatic Installation")
+        self.app.start_installation("Installation")
