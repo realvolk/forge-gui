@@ -28,6 +28,7 @@ class InstallerApp(Adw.Application):
         self.window.set_titlebar(header)
 
         self._apply_theme()
+        self._build_package_index()
 
         from .mode_select import ModeSelectPage
         self.nav_view.push(Adw.NavigationPage(
@@ -55,6 +56,21 @@ class InstallerApp(Adw.Application):
                     f.write(f'{key}="{value}"\n')
         except Exception as e:
             print(f"Error saving state: {e}")
+
+    def _build_package_index(self):
+        self._package_index = []
+        try:
+            result = subprocess.run(
+                ['pacman', '-Sl', 'world', 'galaxy'],
+                capture_output=True, text=True, timeout=30
+            )
+            for line in result.stdout.strip().split('\n'):
+                if line.strip():
+                    parts = line.split()
+                    if len(parts) >= 2:
+                        self._package_index.append(parts[1])
+        except Exception:
+            self._package_index = []
 
     def _apply_theme(self):
         light = self.state.get("GUI_BACKGROUND", "black") == "white"
@@ -334,7 +350,7 @@ class InstallerApp(Adw.Application):
         for child in self.users_group:
             children.append(child)
         for child in children:
-            if isinstance(child, Gtk.Box):  # the button box
+            if isinstance(child, Gtk.Box):
                 break
             self.users_group.remove(child)
 
@@ -359,9 +375,9 @@ class InstallerApp(Adw.Application):
             choice = dialog.choose_finish(result)
         except Exception:
             return
-        if choice == 0:  # Edit
+        if choice == 0:
             self._edit_user_dialog(idx)
-        elif choice == 1:  # Remove
+        elif choice == 1:
             name = self.state.get(f"USER_{idx}_NAME", f"User {idx}")
             confirm = Gtk.AlertDialog()
             confirm.set_buttons(["Cancel", "Remove"])
@@ -411,12 +427,9 @@ class InstallerApp(Adw.Application):
 
         shell_combo = Gtk.DropDown.new(Gtk.StringList.new(["bash", "zsh", "fish"]))
         current_shell = self.state.get(f"USER_{idx}_SHELL", "/bin/bash")
-        if "zsh" in current_shell:
-            shell_combo.set_selected(1)
-        elif "fish" in current_shell:
-            shell_combo.set_selected(2)
-        else:
-            shell_combo.set_selected(0)
+        if "zsh" in current_shell: shell_combo.set_selected(1)
+        elif "fish" in current_shell: shell_combo.set_selected(2)
+        else: shell_combo.set_selected(0)
         vbox.append(Gtk.Label(label="Shell:", xalign=0))
         vbox.append(shell_combo)
 
@@ -443,28 +456,23 @@ class InstallerApp(Adw.Application):
         def on_response(d, resp):
             if resp == Gtk.ResponseType.OK:
                 name = name_entry.get_text().strip()
-                if not name:
-                    return
+                if not name: return
                 raw_pass = pass_entry.get_text()
                 hashed = ""
                 if raw_pass:
-                    import subprocess
                     result = subprocess.run(['openssl', 'passwd', '-6', raw_pass], capture_output=True, text=True)
                     hashed = result.stdout.strip()
                 shell_vals = ["/bin/bash", "/bin/zsh", "/usr/bin/fish"]
                 shell = shell_vals[shell_combo.get_selected()]
                 groups = " ".join([g for g, cb in checks.items() if cb.get_active()])
                 sudo = "yes" if sudo_switch.get_active() else "no"
-
                 self.state[f"USER_{idx}_NAME"] = name
                 self.state[f"USER_{idx}_PASS"] = hashed
                 self.state[f"USER_{idx}_SHELL"] = shell
                 self.state[f"USER_{idx}_GROUPS"] = groups
                 self.state[f"USER_{idx}_SUDO"] = sudo
-
                 count = int(self.state.get("USER_COUNT", 0))
-                if idx > count:
-                    self.state["USER_COUNT"] = str(idx)
+                if idx > count: self.state["USER_COUNT"] = str(idx)
                 self._rebuild_user_list()
             dialog.destroy()
 
@@ -547,96 +555,73 @@ class InstallerApp(Adw.Application):
 
 
     def collect_state_common(self):
-        # theme
         if hasattr(self, 'theme_combo'):
             themes = ["ArtixForge", "Artix", "Jet Black", "Mono", "Retro"]
             idx = self.theme_combo.get_selected()
             if 0 <= idx < len(themes):
                 self.state['GUM_TITLE_COLOR'], self.state['GUM_ACCENT_COLOR'] = {
-                    "ArtixForge": ("212", "34"),
-                    "Artix": ("39", "117"),
-                    "Jet Black": ("245", "196"),
-                    "Mono": ("250", "255"),
+                    "ArtixForge": ("212", "34"), "Artix": ("39", "117"),
+                    "Jet Black": ("245", "196"), "Mono": ("250", "255"),
                     "Retro": ("3", "11"),
                 }.get(themes[idx], ("212", "34"))
 
-        # filesystem
         if hasattr(self, 'fs_combo'):
             fs_values = ["ext4", "btrfs", "xfs", "f2fs"]
             idx = self.fs_combo.get_selected()
-            if 0 <= idx < len(fs_values):
-                self.state['FS_TYPE'] = fs_values[idx]
+            if 0 <= idx < len(fs_values): self.state['FS_TYPE'] = fs_values[idx]
         if hasattr(self, 'btrfs_layout_combo'):
             layout = ["standard", "flat", "snapshot"]
             idx = self.btrfs_layout_combo.get_selected()
-            if 0 <= idx < len(layout):
-                self.state['BTRFS_LAYOUT'] = layout[idx]
+            if 0 <= idx < len(layout): self.state['BTRFS_LAYOUT'] = layout[idx]
 
-        # bootloader
         if hasattr(self, 'bl_combo'):
             artix_boot_mode = os.environ.get("ARTIX_BOOT_MODE", "uefi")
             bl_values = ["grub"] if artix_boot_mode == "bios" else ["grub", "refind", "efistub", "limine"]
             idx = self.bl_combo.get_selected()
-            if 0 <= idx < len(bl_values):
-                self.state['BOOTLOADER'] = bl_values[idx]
+            if 0 <= idx < len(bl_values): self.state['BOOTLOADER'] = bl_values[idx]
         if hasattr(self, 'uki_switch'):
             self.state['GENERATE_UKI'] = "yes" if self.uki_switch.get_active() else "no"
 
-        # kernel
         if hasattr(self, 'kernel_combo'):
             kernels = ["linux", "linux-zen", "linux-lts", "linux-hardened", "linux-libre", "linux-cachyos-bore", "linux-bazzite-bin", "xanmod", "tkg"]
             idx = self.kernel_combo.get_selected()
-            if 0 <= idx < len(kernels):
-                self.state['KERNEL_CHOICE'] = kernels[idx]
+            if 0 <= idx < len(kernels): self.state['KERNEL_CHOICE'] = kernels[idx]
         if hasattr(self, 'microcode_combo'):
             ucodes = ["auto", "intel-ucode", "amd-ucode", "none"]
             idx = self.microcode_combo.get_selected()
-            if 0 <= idx < len(ucodes):
-                self.state['MICROCODE_OVERRIDE'] = ucodes[idx]
+            if 0 <= idx < len(ucodes): self.state['MICROCODE_OVERRIDE'] = ucodes[idx]
 
-        # init
         if hasattr(self, 'init_combo'):
             inits = ["openrc", "runit", "dinit", "s6"]
             idx = self.init_combo.get_selected()
-            if 0 <= idx < len(inits):
-                self.state['INIT'] = inits[idx]
+            if 0 <= idx < len(inits): self.state['INIT'] = inits[idx]
 
-        # desktop
         if hasattr(self, 'de_combo'):
             des = ["kde", "sonicde", "xfce4", "lxqt", "lxde", "hyprland", "sway", "niri", "i3wm", "dwm", "vxwm", "icewm", "mango", "cinnamon", "budgie", "moksha", "cosmic", "none"]
             idx = self.de_combo.get_selected()
-            if 0 <= idx < len(des):
-                self.state['WM_DE'] = des[idx]
+            if 0 <= idx < len(des): self.state['WM_DE'] = des[idx]
         if hasattr(self, 'xstack_combo'):
             xs = ["xlibre", "xorg"]
             idx = self.xstack_combo.get_selected()
-            if 0 <= idx < len(xs):
-                self.state['X_STACK'] = xs[idx]
+            if 0 <= idx < len(xs): self.state['X_STACK'] = xs[idx]
         if hasattr(self, 'dm_combo'):
             dms = ["none", "lightdm", "sddm", "soniclogin"]
             idx = self.dm_combo.get_selected()
-            if 0 <= idx < len(dms):
-                self.state['DISPLAY_MANAGER'] = dms[idx]
+            if 0 <= idx < len(dms): self.state['DISPLAY_MANAGER'] = dms[idx]
 
-        # network/audio
         if hasattr(self, 'net_combo'):
             nets = ["networkmanager", "dhcpcd+iwd", "connman", "none"]
             idx = self.net_combo.get_selected()
-            if 0 <= idx < len(nets):
-                self.state['NETWORK_STACK'] = nets[idx]
+            if 0 <= idx < len(nets): self.state['NETWORK_STACK'] = nets[idx]
         if hasattr(self, 'audio_combo'):
             audios = ["pipewire", "pulseaudio", "none"]
             idx = self.audio_combo.get_selected()
-            if 0 <= idx < len(audios):
-                self.state['AUDIO_STACK'] = audios[idx]
+            if 0 <= idx < len(audios): self.state['AUDIO_STACK'] = audios[idx]
 
-        # shell (handled by callback)
-        # extras
         extras = []
         if hasattr(self, '_InstallerApp__extras_checkboxes'):
             for pkg, cb in self._InstallerApp__extras_checkboxes.items():
-                if cb.get_active():
-                    extras.append(pkg)
+                if cb.get_active(): extras.append(pkg)
         self.state['EXTRAS'] = " ".join(extras)
 
         if hasattr(self, 'root_pass_entry'):
@@ -645,7 +630,6 @@ class InstallerApp(Adw.Application):
                 result = subprocess.run(['openssl', 'passwd', '-6', raw], capture_output=True, text=True)
                 self.state['ROOT_PASS'] = result.stdout.strip()
 
-        # privilege
         if hasattr(self, 'priv_combo'):
             self.state['PRIV_ESCALATION'] = "sudo" if self.priv_combo.get_selected() == 0 else "doas"
         if hasattr(self, 'arch_repos_switch'):
@@ -704,6 +688,5 @@ class InstallerApp(Adw.Application):
         status_page = Adw.StatusPage()
         status_page.set_title("ArtixForge")
         status_page.set_description(msg)
-        if icon:
-            status_page.set_icon_name(icon)
+        if icon: status_page.set_icon_name(icon)
         self.nav_view.push(Adw.NavigationPage(child=status_page, title="Result"))

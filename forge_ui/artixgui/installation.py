@@ -29,14 +29,11 @@ class InstallationWizard:
         self._update_summary()
         nav.push(Adw.NavigationPage(child=summary_page, title="Summary"))
 
-    def _create_disk_page(self):
-        page = Adw.PreferencesPage()
-        group = Adw.PreferencesGroup(title="Target Disk")
-
-        disk_list = Gtk.StringList.new([])
+    def _populate_disk_list(self, disk_list):
+        disk_list.remove_all()
+        disk_names = []
         result = subprocess.run(['lsblk', '-dpno', 'NAME,SIZE,MODEL', '-e', '7'],
                                 capture_output=True, text=True)
-        disk_names = []
         for line in result.stdout.strip().split('\n'):
             if line.strip():
                 parts = line.split(' ', 1)
@@ -44,11 +41,23 @@ class InstallationWizard:
                 if '/dev/loop' in name or '/dev/sr' in name:
                     continue
                 disk_names.append(name)
-        if disk_names:
-            disk_list = Gtk.StringList.new(disk_names)
+        for name in disk_names:
+            disk_list.append(name)
+
+    def _create_disk_page(self):
+        page = Adw.PreferencesPage()
+        group = Adw.PreferencesGroup(title="Target Disk")
+
+        disk_list = Gtk.StringList.new([])
+        self._populate_disk_list(disk_list)
         self.app.disk_combo = Gtk.DropDown.new(disk_list)
         disk_row = Adw.ActionRow(title="Disk", subtitle="Select target drive")
         disk_row.add_suffix(self.app.disk_combo)
+
+        refresh_btn = Gtk.Button.new_from_icon_name("view-refresh-symbolic")
+        refresh_btn.set_tooltip_text("Refresh disk list")
+        refresh_btn.connect("clicked", lambda b: self._populate_disk_list(disk_list))
+        disk_row.add_suffix(refresh_btn)
         group.add(disk_row)
 
         self.app.whole_disk_switch = Gtk.Switch()
@@ -100,7 +109,7 @@ class InstallationWizard:
         manual_label = Gtk.Label()
         manual_label.set_text(
             "You will partition the disk yourself using tools like cfdisk or fdisk.\n"
-            "Create an EFI partition (≥512 MiB) and a root partition.\n"
+            "Create an EFI partition (>=512 MiB) and a root partition.\n"
             "If you want swap, LUKS, or LVM, set them up manually."
         )
         manual_label.set_wrap(True)
@@ -130,7 +139,7 @@ class InstallationWizard:
                 self.app.state['DISK'] = model.get_string(idx)
         if hasattr(self.app, 'whole_disk_switch'):
             if not self.app.whole_disk_switch.get_active():
-                self.app.state['EFI_PART'] = ""  # user will partition manually
+                self.app.state['EFI_PART'] = ""
                 self.app.state['ROOT_PART'] = ""
         if hasattr(self.app, 'swap_switch'):
             self.app.state['SWAP_ENABLED'] = "yes" if self.app.swap_switch.get_active() else "no"
